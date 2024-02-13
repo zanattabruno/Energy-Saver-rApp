@@ -1,0 +1,16 @@
+{
+  "E2NodeList": [
+    {
+      "mcc": 310,
+      "mnc": 260,
+      "nodebid": 10001,
+      "radioPower": 18.5
+    },
+    {
+      "mcc": 311,
+      "mnc": 480,
+      "nodebid": 10002,
+      "radioPower": 22.0
+    }
+  ]
+}

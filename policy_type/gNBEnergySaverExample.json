@@ -1,0 +1,20 @@
+{
+    "gNBList": [
+      {
+        "gNBID": "gNB12345",
+        "state": "ON",
+        "eei": 15.5
+      },
+      {
+        "gNBID": "gNB67890",
+        "state": "OFF",
+        "eei": 0
+      },
+      {
+        "gNBID": "gNB54321",
+        "state": "ON",
+        "eei": 20.1
+      }
+    ]
+  }
+  

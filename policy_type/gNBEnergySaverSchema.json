@@ -1,0 +1,39 @@
+{
+  "name": "gNBEnergySaver",
+  "description": "gNB Listing and Energy Efficiency Policy",
+  "policy_type_id": 3,
+  "create_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "gNB Energy Policy",
+    "description": "gNB IDs, States, and Energy Efficiency Index Policy",
+    "type": "object",
+    "properties": {
+      "gNBList": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "gNBID": {
+              "type": "string",
+              "description": "gNB Identifier"
+            },
+            "state": {
+              "type": "string",
+              "enum": ["ON", "OFF"],
+              "description": "Current operational state of the gNB"
+            },
+            "eei": {
+              "type": "number",
+              "description": "Energy efficiency index calculated as Data throughput of the gNB (in Mbps) / Power consumed by the gNB (in watts)",
+              "minimum": 0
+            }
+          },
+          "required": ["gNBID", "state","eei"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["gNBList"],
+    "additionalProperties": false
+  }
+}
