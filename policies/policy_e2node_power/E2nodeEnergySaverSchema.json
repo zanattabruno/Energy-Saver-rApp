@@ -1,0 +1,50 @@
+{
+  "name": "E2Node Energy Policy Type Schema Radio Power",
+  "description": "Defines the energy policy for E2Nodes focusing on radio power management to enhance energy efficiency.",
+  "policy_type_id": 4,
+  "create_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "E2Node Energy Policy Type Radio Power",
+    "description": "A schema to configure and manage radio power settings of E2Nodes for improved energy efficiency in mobile networks.",
+    "type": "object",
+    "properties": {
+      "E2NodeList": {
+        "type": "array",
+        "description": "A list of E2Nodes, each defined by specific parameters including Mobile Country Code, Mobile Network Code, NodeB Identifier, and radio power.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "mcc": {
+              "type": "integer",
+              "description": "Mobile Country Code identifying the country of the mobile subscriber."
+            },
+            "mnc": {
+              "type": "integer",
+              "description": "Mobile Network Code identifying the home network of the mobile subscriber."
+            },
+            "nodebid": {
+              "type": "integer",
+              "description": "NodeB Identifier uniquely identifying a NodeB within a mobile network."
+            },
+            "radioPower": {
+              "type": "number",
+              "description": "Specifies the radio power level of the E2Node in dBm, according to O-RAN specifications. This value is non-negative, reflecting the output power capability.",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "mcc",
+            "mnc",
+            "nodebid",
+            "radioPower"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "E2NodeList"
+    ],
+    "additionalProperties": false
+  }
+}
