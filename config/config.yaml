@@ -1,0 +1,23 @@
+# Logging configuration
+logging:
+  level: INFO # Logging level
+
+# Energy
+E2NodeList:
+  - mcc: 310
+    mnc: 260
+    nodebid: 10001
+    radioPower: 18.5
+  - mcc: 311
+    mnc: 480
+    nodebid: 10002
+    radioPower: 22.0
+
+
+# Non-RT RIC configuration
+nonrtric:
+  base_url_rApp_catalogue: 'http://rappcatalogueservice.nonrtric.svc.cluster.local:9085/services'
+  service_name: 'rApp_Energy_Saver'
+  service_version: 'v1'
+  service_display_name: 'rApp_Energy_Saver'
+  service_description: 'Energy-saving application for optimizing power consumption of E2Nodes'
