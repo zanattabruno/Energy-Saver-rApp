@@ -1,10 +1,12 @@
 import logging
 import argparse
 import yaml
+import json
+import random
 from rapp_catalogue_client import rAppCatalalogueClient
 
 
-DEFAULT_CONFIG_FILE_PATH = "config/config.yaml"
+DEFAULT_CONFIG_FILE_PATH = "src/config/config.yaml"
 
 
 def setup_logging(config):
@@ -41,12 +43,38 @@ class EnergySaver:
     def __init__(self, logger, config):
         self.logger = logger
         self.config = config
+        self.e2nodelist = []
 
     def run(self):
         self.logger.info('Running the energy saver application.')
-        self.logger.info('Configuration: %s', self.config)
+        self.logger.debug('Configuration: %s', self.config)
+        self.load_e2nodelist()
+        self.e2nodelist = self.change_radio_power(self.e2nodelist)
 
+    def load_e2nodelist(self):
+        try:
+            self.e2nodelist = self.config.get('E2NodeList', [])
+            self.logger.debug('E2NodeList: %s', self.e2nodelist)
+            return json.dumps(self.e2nodelist)
+        except Exception as e:
+            self.logger.error('Failed to load E2NodeList: %s', e)
+            return None
 
+    def change_radio_power(self, e2nodelist):
+        """
+        Changes the value of radioPower in e2nodelist with random valid values for radio power.
+
+        Args:
+            e2nodelist (list): List of E2 nodes.
+
+        Returns:
+            list: Updated list of E2 nodes.
+        """
+        for node in e2nodelist:
+            node['radioPower'] = round(random.uniform(0.0, 55.0), 2)  # Change radioPower to a random value between 0 and 55 with 2-digit precision
+        self.logger.info('Updated E2NodeList: %s', json.dumps(e2nodelist))
+        return e2nodelist
+    
 if __name__ == "__main__":
     args = parse_arguments()
     # Load the configuration from the file
@@ -58,3 +86,5 @@ if __name__ == "__main__":
         logger.info("Service successfully registered on rApp catalogue.")
     else:
         logger.error("Failed to register service.")
+    energy_saver = EnergySaver(logger, config)
+    energy_saver.run()
