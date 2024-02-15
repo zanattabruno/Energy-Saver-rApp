@@ -21,3 +21,5 @@ nonrtric:
   service_version: 'v1'
   service_display_name: 'rApp_Energy_Saver'
   service_description: 'Energy-saving application for optimizing power consumption of E2Nodes'
+  ric_id: 'ric4'
+  radiopower_policytype_id: '4'

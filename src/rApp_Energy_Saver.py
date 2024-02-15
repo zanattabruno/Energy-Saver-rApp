@@ -44,14 +44,47 @@ class EnergySaver:
         self.logger = logger
         self.config = config
         self.e2nodelist = []
+        self.policyradiopowerbody = {}
+    
+    def fill_policy_body(self, data):
+        """
+        Fills the policybody dictionary with the required values from the configuration and data.
+
+        Args:
+            config (dict): Configuration settings.
+            data (list): List of E2 nodes.
+
+        Returns:
+            dict: Filled policybody dictionary.
+        """
+        policybody = {
+            "ric_id": config['nonrtric']['ric_id'],
+            "policy_id": str(random.randint(0000, 9999)),
+            "service_id": config['nonrtric']['service_name'],
+            "policy_data": data,
+            "policytype_id": config['nonrtric']['radiopower_policytype_id'],
+        }
+        self.policyradiopowerbody = json.dumps(policybody)
+        return self.policyradiopowerbody
 
     def run(self):
         self.logger.info('Running the energy saver application.')
         self.logger.debug('Configuration: %s', self.config)
         self.load_e2nodelist()
         self.e2nodelist = self.change_radio_power(self.e2nodelist)
+        self.fill_policy_body(self.e2nodelist)
+        print(self.policyradiopowerbody)
 
     def load_e2nodelist(self):
+        """
+        Load the E2NodeList from the configuration and return it as a JSON string.
+
+        Returns:
+            str: JSON string representation of the E2NodeList.
+            
+        Raises:
+            Exception: If there is an error while loading the E2NodeList.
+        """
         try:
             self.e2nodelist = self.config.get('E2NodeList', [])
             self.logger.debug('E2NodeList: %s', self.e2nodelist)
@@ -71,7 +104,7 @@ class EnergySaver:
             list: Updated list of E2 nodes.
         """
         for node in e2nodelist:
-            node['radioPower'] = round(random.uniform(0.0, 55.0), 2)  # Change radioPower to a random value between 0 and 55 with 2-digit precision
+            node['radioPower'] = round(random.uniform(0.0, 55.0), 1)  # Change radioPower to a random value between 0 and 55 with 2-digit precision
         self.logger.info('Updated E2NodeList: %s', json.dumps(e2nodelist))
         return e2nodelist
     
