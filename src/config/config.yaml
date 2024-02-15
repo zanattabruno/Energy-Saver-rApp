@@ -17,9 +17,11 @@ E2NodeList:
 # Non-RT RIC configuration
 nonrtric:
   base_url_rApp_catalogue: 'http://rappcatalogueservice.nonrtric.svc.cluster.local:9085/services'
-  service_name: 'rApp_Energy_Saver'
+  base_url_pms: 'http://nonrtricgateway.nonrtric.svc.cluster.local:9090/a1-policy/v2'
+  #base_url_pms: http://localhost:30093/a1-policy/v2
+  service_name: 'rAppEnergySaver'
   service_version: 'v1'
-  service_display_name: 'rApp_Energy_Saver'
+  service_display_name: 'rApp Energy Saver'
   service_description: 'Energy-saving application for optimizing power consumption of E2Nodes'
   ric_id: 'ric4'
   radiopower_policytype_id: '4'

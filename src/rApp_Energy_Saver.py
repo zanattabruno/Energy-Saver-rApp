@@ -3,6 +3,8 @@ import argparse
 import yaml
 import json
 import random
+import requests
+import time
 from rapp_catalogue_client import rAppCatalalogueClient
 
 
@@ -57,23 +59,18 @@ class EnergySaver:
         Returns:
             dict: Filled policybody dictionary.
         """
+
         policybody = {
             "ric_id": config['nonrtric']['ric_id'],
             "policy_id": str(random.randint(0000, 9999)),
             "service_id": config['nonrtric']['service_name'],
-            "policy_data": data,
+            "policy_data": {"E2NodeList": data},
             "policytype_id": config['nonrtric']['radiopower_policytype_id'],
         }
-        self.policyradiopowerbody = json.dumps(policybody)
-        return self.policyradiopowerbody
+        self.policyradiopowerbody = policybody
 
-    def run(self):
-        self.logger.info('Running the energy saver application.')
-        self.logger.debug('Configuration: %s', self.config)
-        self.load_e2nodelist()
-        self.e2nodelist = self.change_radio_power(self.e2nodelist)
-        self.fill_policy_body(self.e2nodelist)
-        print(self.policyradiopowerbody)
+        self.logger.debug('Policy body: %s', self.policyradiopowerbody)
+        return self.policyradiopowerbody
 
     def load_e2nodelist(self):
         """
@@ -105,8 +102,29 @@ class EnergySaver:
         """
         for node in e2nodelist:
             node['radioPower'] = round(random.uniform(0.0, 55.0), 1)  # Change radioPower to a random value between 0 and 55 with 2-digit precision
-        self.logger.info('Updated E2NodeList: %s', json.dumps(e2nodelist))
+        self.logger.debug('Updated E2NodeList: %s', json.dumps(e2nodelist))
         return e2nodelist
+    
+    def put_policy(self, body):
+        complete_url = config['nonrtric']['base_url_pms'] + "/policies"
+        print(complete_url)
+        headers = {"content-type": "application/json"}
+        self.logger.debug(f"Sending PUT request to {complete_url} with body: {body}")
+        resp = requests.put(complete_url, json=body, headers=headers, verify=False)
+        if not resp.ok:
+            self.logger.info(f"Failed to create policy. Response: {resp}")
+            return False
+        else:
+            self.logger.info("Policy created successfully.")
+            return True
+
+    def run(self):
+        self.logger.info('Running the energy saver application.')
+        self.logger.debug('Configuration: %s', self.config)
+        self.load_e2nodelist()
+        self.e2nodelist = self.change_radio_power(self.e2nodelist)
+        self.fill_policy_body(self.e2nodelist)
+        self.put_policy(self.policyradiopowerbody)
     
 if __name__ == "__main__":
     args = parse_arguments()
@@ -120,4 +138,7 @@ if __name__ == "__main__":
     else:
         logger.error("Failed to register service.")
     energy_saver = EnergySaver(logger, config)
-    energy_saver.run()
+    while True:
+        energy_saver.run()
+        time.sleep(5)
+        logger.info("Sleeping for 30 seconds.")
