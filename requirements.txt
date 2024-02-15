@@ -1,0 +1,9 @@
+certifi==2024.2.2
+charset-normalizer==3.3.2
+idna==3.6
+importlib-metadata==7.0.1
+pkg_resources==0.0.0
+PyYAML==6.0.1
+requests==2.31.0
+urllib3==2.2.0
+zipp==3.17.0
