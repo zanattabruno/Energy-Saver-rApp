@@ -5,11 +5,10 @@ import json
 import random
 import requests
 import time
-from rapp_catalogue_client import rAppCatalalogueClient
-
+from rApp_catalogue_client import rAppCatalalogueClient
+from UE_Consumer import UEConsumer
 
 DEFAULT_CONFIG_FILE_PATH = "src/config/config.yaml"
-
 
 def setup_logging(config):
     """
@@ -138,7 +137,9 @@ if __name__ == "__main__":
     else:
         logger.error("Failed to register service.")
     energy_saver = EnergySaver(logger, config)
+    ue_consumer = UEConsumer(logger, config)
     while True:
         energy_saver.run()
+        ue_consumer.consume_messages()
         time.sleep(5)
         logger.info("Sleeping for 30 seconds.")

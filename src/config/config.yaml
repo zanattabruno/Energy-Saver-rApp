@@ -25,3 +25,16 @@ nonrtric:
   service_description: 'Energy-saving application for optimizing power consumption of E2Nodes'
   ric_id: 'ric4'
   radiopower_policytype_id: '4'
+
+# Kafka configuration
+kafka:
+  bootstrap_servers: "kafka.smo.svc.cluster.local" # Kafka host
+  port: 9092 # Kafka port number
+  enable_auto_commit: True
+  auto_commit_interval_ms: 6000
+  auto_offset_reset: "latest"
+  group_id: "rAppEnergySaver"
+  client_id: "rAppEnergySaver"
+  poll_timeout_seconds: 1
+  topics:
+  - ues
