@@ -4,7 +4,6 @@ import yaml
 import json
 import random
 import requests
-import time
 from rApp_catalogue_client import rAppCatalalogueClient
 from UE_Consumer import UEConsumer
 
@@ -138,7 +137,6 @@ if __name__ == "__main__":
         logger.error("Failed to register service.")
     energy_saver = EnergySaver(logger, config)
     ue_consumer = UEConsumer(logger, config)
-    energy_saver.run()
+    #energy_saver.run()
     while True:
         ue = ue_consumer.run()
-        print(ue)
