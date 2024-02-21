@@ -138,8 +138,7 @@ if __name__ == "__main__":
         logger.error("Failed to register service.")
     energy_saver = EnergySaver(logger, config)
     ue_consumer = UEConsumer(logger, config)
+    energy_saver.run()
     while True:
-        energy_saver.run()
-        ue_consumer.consume_messages()
-        time.sleep(5)
-        logger.info("Sleeping for 30 seconds.")
+        ue = ue_consumer.run()
+        print(ue)
