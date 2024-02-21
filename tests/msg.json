@@ -1,0 +1,152 @@
+{
+    "event": {
+        "commonEventHeader": {
+            "domain": "measurementsForVfScaling",
+            "eventId": "Measurements0000000051",
+            "eventName": "Mvfs_ricp_Measurements",
+            "lastEpochMicrosec": 1708476690000000,
+            "nfNamingCode": "ricp",
+            "priority": "Normal",
+            "reportingEntityId": "01be1742-613f-3e5e-ce9d-acb88ce0490d",
+            "reportingEntityName": "Vespa",
+            "sequence": 0,
+            "sourceName": "'7240119'",
+            "startEpochMicrosec": 1708476660000000,
+            "version": 3
+        },
+        "measurementsForVfScalingFields": {
+            "additionalObjects": [
+                {
+                    "objectInstances": [
+                        {
+                            "objectInstance": {
+                                "e2sm_rc_report_style4_rrc_state:0300": 1
+                            },
+                            "objectKeys": [
+                                {
+                                    "keyName": "measInterval",
+                                    "keyValue": "1"
+                                },
+                                {
+                                    "keyName": "ricComponentName",
+                                    "keyValue": "'72411_00000002'"
+                                },
+                                {
+                                    "keyName": "moId",
+                                    "keyValue": "UEs"
+                                },
+                                {
+                                    "keyName": "measType",
+                                    "keyValue": "ues"
+                                },
+                                {
+                                    "keyName": "measId",
+                                    "keyValue": "9004"
+                                }
+                            ]
+                        }
+                    ],
+                    "objectName": "e2sm_rc_report_style4_rrc_state"
+                },
+                {
+                    "objectInstances": [
+                        {
+                            "objectInstance": {
+                                "e2sm_rc_report_style4_rsrp:0301": 0
+                            },
+                            "objectKeys": [
+                                {
+                                    "keyName": "ricComponentName",
+                                    "keyValue": "'72411_00000002'"
+                                },
+                                {
+                                    "keyName": "moId",
+                                    "keyValue": "UEs"
+                                },
+                                {
+                                    "keyName": "measType",
+                                    "keyValue": "ues"
+                                },
+                                {
+                                    "keyName": "measId",
+                                    "keyValue": "9004"
+                                },
+                                {
+                                    "keyName": "measInterval",
+                                    "keyValue": "1"
+                                }
+                            ]
+                        }
+                    ],
+                    "objectName": "e2sm_rc_report_style4_rsrp"
+                },
+                {
+                    "objectInstances": [
+                        {
+                            "objectInstance": {
+                                "e2sm_rc_report_style4_sinr:0303": 0
+                            },
+                            "objectKeys": [
+                                {
+                                    "keyName": "measId",
+                                    "keyValue": "9004"
+                                },
+                                {
+                                    "keyName": "measInterval",
+                                    "keyValue": "1"
+                                },
+                                {
+                                    "keyName": "ricComponentName",
+                                    "keyValue": "'72411_00000002'"
+                                },
+                                {
+                                    "keyName": "moId",
+                                    "keyValue": "UEs"
+                                },
+                                {
+                                    "keyName": "measType",
+                                    "keyValue": "ues"
+                                }
+                            ]
+                        }
+                    ],
+                    "objectName": "e2sm_rc_report_style4_sinr"
+                },
+                {
+                    "objectInstances": [
+                        {
+                            "objectInstance": {
+                                "e2sm_rc_report_style4_rsrq:0302": 0
+                            },
+                            "objectKeys": [
+                                {
+                                    "keyName": "measId",
+                                    "keyValue": "9004"
+                                },
+                                {
+                                    "keyName": "measInterval",
+                                    "keyValue": "1"
+                                },
+                                {
+                                    "keyName": "ricComponentName",
+                                    "keyValue": "'72411_00000002'"
+                                },
+                                {
+                                    "keyName": "moId",
+                                    "keyValue": "UEs"
+                                },
+                                {
+                                    "keyName": "measType",
+                                    "keyValue": "ues"
+                                }
+                            ]
+                        }
+                    ],
+                    "objectName": "e2sm_rc_report_style4_rsrq"
+                }
+            ],
+            "measurementInterval": 30,
+            "measurementsForVfScalingVersion": 2
+        }
+    }
+}
