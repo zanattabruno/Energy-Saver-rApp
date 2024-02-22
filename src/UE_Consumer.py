@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from confluent_kafka import Consumer
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,7 @@ class UEConsumer:
 
         # Store UE data keyed by IMSI
         self.ue_data = {}
+        self.ue_data_condition = threading.Condition()
 
         # Kafka consumer configuration
         kafka_config = {
@@ -68,24 +70,25 @@ class UEConsumer:
             }
 
         # Extract and update values
-        for obj in message_content["event"]["measurementsForVfScalingFields"]["additionalObjects"]:
-            object_name = obj["objectName"]
-            for instance in obj["objectInstances"]:
-                for key in instance["objectKeys"]:
-                    if key["keyName"] == "ricComponentName":
-                        nodebid = key["keyValue"].strip("'")
-                        self.ue_data[imsi]["nodebid"] = nodebid
-                        break
+        with self.ue_data_condition:
+            for obj in message_content["event"]["measurementsForVfScalingFields"]["additionalObjects"]:
+                object_name = obj["objectName"]
+                for instance in obj["objectInstances"]:
+                    for key in instance["objectKeys"]:
+                        if key["keyName"] == "ricComponentName":
+                            nodebid = key["keyValue"].strip("'")
+                            self.ue_data[imsi]["nodebid"] = nodebid
+                            break
 
-                if object_name == "e2sm_rc_report_style4_rrc_state":
-                    self.ue_data[imsi]["rrc_state"] = list(instance["objectInstance"].values())[0]
-                elif object_name == "e2sm_rc_report_style4_rsrp":
-                    self.ue_data[imsi]["rsrp"] = list(instance["objectInstance"].values())[0]
-                elif object_name == "e2sm_rc_report_style4_sinr":
-                    self.ue_data[imsi]["sinr"] = list(instance["objectInstance"].values())[0]
-                elif object_name == "e2sm_rc_report_style4_rsrq":
-                    self.ue_data[imsi]["rsrq"] = list(instance["objectInstance"].values())[0]
-
+                    if object_name == "e2sm_rc_report_style4_rrc_state":
+                        self.ue_data[imsi]["rrc_state"] = list(instance["objectInstance"].values())[0]
+                    elif object_name == "e2sm_rc_report_style4_rsrp":
+                        self.ue_data[imsi]["rsrp"] = list(instance["objectInstance"].values())[0]
+                    elif object_name == "e2sm_rc_report_style4_sinr":
+                        self.ue_data[imsi]["sinr"] = list(instance["objectInstance"].values())[0]
+                    elif object_name == "e2sm_rc_report_style4_rsrq":
+                        self.ue_data[imsi]["rsrq"] = list(instance["objectInstance"].values())[0]
+                    self.ue_data_condition.notify_all()
         logger.debug(f"Updated UE data: {self.ue_data[imsi]}")
         logger.debug(json.dumps(self.ue_data))  # Log ue_data as JSON
         return self.ue_data[imsi]

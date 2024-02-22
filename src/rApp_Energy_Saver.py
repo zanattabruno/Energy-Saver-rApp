@@ -4,8 +4,11 @@ import yaml
 import json
 import random
 import requests
+import threading
+
 from rApp_catalogue_client import rAppCatalalogueClient
 from UE_Consumer import UEConsumer
+from time import sleep
 
 DEFAULT_CONFIG_FILE_PATH = "src/config/config.yaml"
 
@@ -131,6 +134,7 @@ if __name__ == "__main__":
         config = yaml.safe_load(file)
     logger = setup_logging(config)
     register = rAppCatalalogueClient(args.config)
+    
     if register.register_service():
         logger.info("Service successfully registered on rApp catalogue.")
     else:
@@ -138,5 +142,11 @@ if __name__ == "__main__":
     energy_saver = EnergySaver(logger, config)
     ue_consumer = UEConsumer(logger, config)
     #energy_saver.run()
+
+    thread = threading.Thread(target=ue_consumer.run)
+    thread.start()
     while True:
-        ue = ue_consumer.run()
+        with ue_consumer.ue_data_condition:
+            ue_consumer.ue_data_condition.wait()  
+            logger.info(json.dumps(ue_consumer.ue_data))  
+            #sleep(5)

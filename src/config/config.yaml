@@ -1,6 +1,6 @@
 # Logging configuration
 logging:
-  level: DEBUG # Logging level
+  level: INFO # Logging level
 
 # Energy
 E2NodeList:
