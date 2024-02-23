@@ -128,6 +128,7 @@ class EnergySaver:
         self.put_policy(self.policyradiopowerbody)
     
 if __name__ == "__main__":
+    ue_input_list = []
     args = parse_arguments()
     # Load the configuration from the file
     with open(args.config, 'r') as file:
@@ -145,8 +146,9 @@ if __name__ == "__main__":
 
     thread = threading.Thread(target=ue_consumer.run)
     thread.start()
-    while True:
-        with ue_consumer.ue_data_condition:
-            ue_consumer.ue_data_condition.wait()  
-            logger.info(json.dumps(ue_consumer.ue_data))  
-            #sleep(5)
+    with ue_consumer.ue_data_condition:
+        ue_consumer.ue_data_condition.wait()  
+        logger.info(json.dumps(ue_consumer.ue_data))  
+        ue_input_list = list(ue_consumer.ue_data.values())
+        print(ue_input_list)
+        #sleep(5)
