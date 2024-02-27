@@ -7,6 +7,7 @@ import requests
 import threading
 
 from rApp_catalogue_client import rAppCatalalogueClient
+from UE_Generator import integrate_estimates_with_original_data
 from UE_Consumer import UEConsumer
 from time import sleep
 
@@ -151,5 +152,6 @@ if __name__ == "__main__":
             ue_consumer.ue_data_condition.wait()  
             logger.debug(json.dumps(ue_consumer.ue_data))  
             ue_input_list = list(ue_consumer.ue_data.values())
-            print(json.dumps(ue_input_list))
+            #print(json.dumps(ue_input_list))
+            print(json.dumps(integrate_estimates_with_original_data(ue_input_list)))
             sleep(5)
