@@ -1,22 +1,82 @@
 [
-    {'IMSI': '7240110', 'nodebid': '72411_00000001', 'rrc_state': 1, 'rsrp': 0, 'sinr': 0, 'rsrq': 0
+    {
+        "IMSI": "7240110",
+        "nodebid": "72411_00000001",
+        "rrc_state": 1,
+        "rsrp": 0,
+        "sinr": 0,
+        "rsrq": 0
     },
-    {'IMSI': '7240111', 'nodebid': '72411_00000001', 'rrc_state': 1, 'rsrp': 0, 'sinr': 0, 'rsrq': 0
+    {
+        "IMSI": "7240113",
+        "nodebid": "72411_00000001",
+        "rrc_state": 1,
+        "rsrp": 0,
+        "sinr": 0,
+        "rsrq": 0
     },
-    {'IMSI': '7240113', 'nodebid': '72411_00000001', 'rrc_state': 1, 'rsrp': 0, 'sinr': 0, 'rsrq': 0
+    {
+        "IMSI": "7240111",
+        "nodebid": "72411_00000002",
+        "rrc_state": 1,
+        "rsrp": 0,
+        "sinr": 0,
+        "rsrq": 0
     },
-    {'IMSI': '7240115', 'nodebid': '72411_00000001', 'rrc_state': 1, 'rsrp': 0, 'sinr': 0, 'rsrq': 0
+    {
+        "IMSI": "7240112",
+        "nodebid": "72411_00000002",
+        "rrc_state": 1,
+        "rsrp": 0,
+        "sinr": 0,
+        "rsrq": 0
     },
-    {'IMSI': '7240117', 'nodebid': '72411_00000001', 'rrc_state': 1, 'rsrp': 0, 'sinr': 0, 'rsrq': 0
+    {
+        "IMSI": "7240114",
+        "nodebid": "72411_00000002",
+        "rrc_state": 1,
+        "rsrp": 0,
+        "sinr": 0,
+        "rsrq": 0
     },
-    {'IMSI': '7240119', 'nodebid': '72411_00000001', 'rrc_state': 1, 'rsrp': 0, 'sinr': 0, 'rsrq': 0
+    {
+        "IMSI": "7240115",
+        "nodebid": "72411_00000002",
+        "rrc_state": 1,
+        "rsrp": 0,
+        "sinr": 0,
+        "rsrq": 0
     },
-    {'IMSI': '7240112', 'nodebid': '72411_00000002', 'rrc_state': 1, 'rsrp': 0, 'sinr': 0, 'rsrq': 0
+    {
+        "IMSI": "7240116",
+        "nodebid": "72411_00000002",
+        "rrc_state": 1,
+        "rsrp": 0,
+        "sinr": 0,
+        "rsrq": 0
     },
-    {'IMSI': '7240114', 'nodebid': '72411_00000002', 'rrc_state': 1, 'rsrp': 0, 'sinr': 0, 'rsrq': 0
+    {
+        "IMSI": "7240117",
+        "nodebid": "72411_00000002",
+        "rrc_state": 1,
+        "rsrp": 0,
+        "sinr": 0,
+        "rsrq": 0
     },
-    {'IMSI': '7240116', 'nodebid': '72411_00000002', 'rrc_state': 1, 'rsrp': 0, 'sinr': 0, 'rsrq': 0
+    {
+        "IMSI": "7240118",
+        "nodebid": "72411_00000002",
+        "rrc_state": 1,
+        "rsrp": 0,
+        "sinr": 0,
+        "rsrq": 0
     },
-    {'IMSI': '7240118', 'nodebid': '72411_00000002', 'rrc_state': 1, 'rsrp': 0, 'sinr': 0, 'rsrq': 0
+    {
+        "IMSI": "7240119",
+        "nodebid": "72411_00000002",
+        "rrc_state": 1,
+        "rsrp": 0,
+        "sinr": 0,
+        "rsrq": 0
     }
 ]
