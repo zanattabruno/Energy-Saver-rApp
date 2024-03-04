@@ -130,6 +130,7 @@ class EnergySaver:
     
 if __name__ == "__main__":
     ue_input_list = []
+    ue_input_dict = {}
     args = parse_arguments()
     # Load the configuration from the file
     with open(args.config, 'r') as file:
@@ -153,5 +154,6 @@ if __name__ == "__main__":
             logger.debug(json.dumps(ue_consumer.ue_data))  
             ue_input_list = list(ue_consumer.ue_data.values())
             #print(json.dumps(ue_input_list))
-            print(json.dumps(integrate_estimates_with_original_data(ue_input_list)))
+            ue_input_dict['users'] = integrate_estimates_with_original_data(ue_input_list)
+            print(json.dumps(ue_input_dict))
             sleep(5)
