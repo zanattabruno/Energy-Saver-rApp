@@ -8,6 +8,7 @@ import threading
 
 from rApp_catalogue_client import rAppCatalalogueClient
 from UE_Generator import integrate_estimates_with_original_data
+from Solution_Tools import extract_radio_power, update_radio_power
 from UE_Consumer import UEConsumer
 from time import sleep
 from optimal_model.run_model import run_optimization
@@ -151,6 +152,7 @@ if __name__ == "__main__":
     thread.start()
     while True:
         with ue_consumer.ue_data_condition:
+            sleep(5)
             ue_consumer.ue_data_condition.wait()  
             logger.debug(json.dumps(ue_consumer.ue_data))  
             ue_input_list = list(ue_consumer.ue_data.values())
@@ -158,5 +160,7 @@ if __name__ == "__main__":
             ue_input_dict['users'] = integrate_estimates_with_original_data(ue_input_list)
             #print(json.dumps(ue_input_dict))
             solution = run_optimization(ue_input_dict)
-            print(json.dumps(solution))
-            sleep(5)
+            #print(json.dumps(solution))
+            #print(json.dumps(extract_radio_power(solution)))
+            #print(json.dumps(config))
+            update_radio_power(config, extract_radio_power(solution))
