@@ -45,7 +45,6 @@ def update_radio_power(config, radiopower):
         node_id, gain = entry.split(': ')
         gain_dict[node_id] = float(gain)
 
-    # Corrected iteration over config["O1"]["E2Nodes"]
     for o1_node in config["O1"]["E2Nodes"]:
         for node_id, url in o1_node.items():
             if node_id in gain_dict:
