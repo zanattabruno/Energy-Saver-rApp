@@ -133,6 +133,7 @@ class EnergySaver:
 if __name__ == "__main__":
     ue_input_list = []
     ue_input_dict = {}
+    last_run_number_of_ues = 0
     args = parse_arguments()
     # Load the configuration from the file
     with open(args.config, 'r') as file:
@@ -150,17 +151,30 @@ if __name__ == "__main__":
 
     thread = threading.Thread(target=ue_consumer.run)
     thread.start()
-    while True:
+
+    while config["trigger"]["interval"]["enable"]:
         with ue_consumer.ue_data_condition:
-            sleep(5)
+            sleep(config["trigger"]["interval"]["seconds"])
             ue_consumer.ue_data_condition.wait()  
             logger.debug(json.dumps(ue_consumer.ue_data))  
             ue_input_list = list(ue_consumer.ue_data.values())
             print(json.dumps(ue_input_list))
             ue_input_dict['users'] = integrate_estimates_with_original_data(ue_input_list)
-            #print(json.dumps(ue_input_dict))
             solution = run_optimization(ue_input_dict)
-            #print(json.dumps(solution))
-            #print(json.dumps(extract_radio_power(solution)))
-            #print(json.dumps(config))
             update_radio_power(config, extract_radio_power(solution))
+    
+    while config["trigger"]["user_variation"]["enable"]:
+        with ue_consumer.ue_data_condition:
+            ue_consumer.ue_data_condition.wait()  
+            logger.debug(json.dumps(ue_consumer.ue_data))
+            ue_input_list = list(ue_consumer.ue_data.values())
+            logger.info(f"Number of UEs: {len(ue_input_list)}")
+            ue_input_dict['users'] = integrate_estimates_with_original_data(ue_input_list)
+            if last_run_number_of_ues * (1 + config["trigger"]["user_variation"]["percentage"]) < len(ue_input_list):
+                solution = run_optimization(ue_input_dict)
+                update_radio_power(config, extract_radio_power(solution))
+                last_run_number_of_ues = len(ue_input_list)
+
+
+
+
