@@ -12,6 +12,7 @@ from Solution_Tools import extract_radio_power, update_radio_power
 from UE_Consumer import UEConsumer
 from time import sleep
 from optimal_model.run_model import run_optimization
+import time
 
 DEFAULT_CONFIG_FILE_PATH = "src/config/config.yaml"
 
@@ -110,6 +111,15 @@ class EnergySaver:
         return e2nodelist
     
     def put_policy(self, body):
+        """
+        Sends a PUT request to create a policy.
+
+        Args:
+            body (dict): The JSON body of the request.
+
+        Returns:
+            bool: True if the policy is created successfully, False otherwise.
+        """
         complete_url = config['nonrtric']['base_url_pms'] + "/policies"
         print(complete_url)
         headers = {"content-type": "application/json"}
@@ -134,6 +144,7 @@ if __name__ == "__main__":
     ue_input_list = []
     ue_input_dict = {}
     last_run_number_of_ues = 0
+    last_run_time = time.time()
     args = parse_arguments()
     # Load the configuration from the file
     with open(args.config, 'r') as file:
@@ -152,28 +163,56 @@ if __name__ == "__main__":
     thread = threading.Thread(target=ue_consumer.run)
     thread.start()
 
+    # Main loop that runs as long as the trigger interval is enabled in the configuration.
     while config["trigger"]["interval"]["enable"]:
+        # Synchronize access to UE (User Equipment) data using a condition variable.
         with ue_consumer.ue_data_condition:
+            # Sleep for a specified interval before processing the UE data. This helps in controlling the rate of data processing.
             sleep(config["trigger"]["interval"]["seconds"])
+            # Wait for the UE data condition to be signaled. This usually indicates that new UE data is available for processing.
             ue_consumer.ue_data_condition.wait()  
+            # Log the current UE data for debugging purposes. The data is converted to a JSON string before logging.
             logger.debug(json.dumps(ue_consumer.ue_data))  
+            # Convert the UE data from a dictionary to a list for further processing.
             ue_input_list = list(ue_consumer.ue_data.values())
-            print(json.dumps(ue_input_list))
+            # Prepare the UE input data for optimization by integrating estimates with the original data and assigning it to a new dictionary.
             ue_input_dict['users'] = integrate_estimates_with_original_data(ue_input_list)
+            # Run the optimization process with the prepared UE input data.
             solution = run_optimization(ue_input_dict)
+            # Update the radio power configuration based on the optimization solution.
             update_radio_power(config, extract_radio_power(solution))
     
+    # Main loop that runs as long as user variation trigger is enabled in the configuration.
     while config["trigger"]["user_variation"]["enable"]:
+        # Synchronize access to UE (User Equipment) data using a condition variable.
         with ue_consumer.ue_data_condition:
+            # Wait for the UE data condition to be signaled, indicating new UE data is available.
             ue_consumer.ue_data_condition.wait()  
+            # Log the current state of UE data for debugging. The data is converted into a JSON string.
             logger.debug(json.dumps(ue_consumer.ue_data))
+            # Extract UE data values, converting them from a dictionary to a list for further processing.
             ue_input_list = list(ue_consumer.ue_data.values())
+            # Log the number of User Equipments (UEs) currently being processed.
             logger.info(f"Number of UEs: {len(ue_input_list)}")
+            # Prepare the UE data for optimization by integrating additional estimates with the original data.
             ue_input_dict['users'] = integrate_estimates_with_original_data(ue_input_list)
-            if last_run_number_of_ues * (1 + config["trigger"]["user_variation"]["percentage"]) < len(ue_input_list):
-                solution = run_optimization(ue_input_dict)
-                update_radio_power(config, extract_radio_power(solution))
-                last_run_number_of_ues = len(ue_input_list)
+            # Check if the minimum time since the last optimization run has been reached.
+            if time.time() - last_run_time > config["trigger"]["user_variation"]["min_time_since_last_run_seconds"]:
+                # Check if the user equipment variation threshold has been exceeded, allowing for a new optimization run.
+                if last_run_number_of_ues * (1 + config["trigger"]["user_variation"]["percentage"]) < len(ue_input_list):
+                    # Run the optimization process using the prepared UE data.
+                    solution = run_optimization(ue_input_dict)
+                    # Update the radio power configuration based on the results of the optimization.
+                    update_radio_power(config, extract_radio_power(solution))
+                    # Update the counters for the number of UEs and the last run time after a successful optimization.
+                    last_run_number_of_ues = len(ue_input_list)
+                    last_run_time = time.time()
+                else:
+                    # Log information indicating that the user equipment variation condition for optimization has not been met.
+                    logger.info("Ue variation for running optimization is not met.")
+            else:
+                # Log information indicating that the minimum time requirement since the last optimization run has not been reached.
+                logger.info("Minimum time since last run is not reached.")
 
 
 
