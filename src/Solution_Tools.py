@@ -61,5 +61,4 @@ def update_radio_power(config, radiopower):
                 except requests.exceptions.RequestException as e:
                     results[node_id] = (False, f"Request exception: {str(e)}")
                     logger.error(f"Request exception for {node_id}: {str(e)}")
-
     return results
