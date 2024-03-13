@@ -14,6 +14,7 @@ E2NodeList:
     radioPower: 22.0
 
 
+# Configuration for O1 comunications
 O1:
   E2Nodes:
     - '72411_00000001': 'http://e2node1-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'
@@ -21,12 +22,25 @@ O1:
     - '72411_00000003': 'http://e2node3-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'
     - '72411_00000004': 'http://e2node4-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'
 
+# Configuration settings for the energy-saver-rapp application trigger
+# Just one can be enabled at the same time
+trigger:
+  # The interval in seconds at which the trigger should occur. Set to 0 to disable the trigger.
+  interval:
+    enable: False
+    seconds: 10
+  # User variation configuration
+  user_variation:
+    enable: True
+    # The percentage of the user variation. Should be between 0 and 1.
+    percentage: 0.2
+    # Minimum time since the last run in seconds
+    min_time_since_last_run_seconds: 10
 
 # Non-RT RIC configuration
 nonrtric:
   base_url_rApp_catalogue: 'http://rappcatalogueservice.nonrtric.svc.cluster.local:9085/services'
   base_url_pms: 'http://nonrtricgateway.nonrtric.svc.cluster.local:9090/a1-policy/v2'
-  #base_url_pms: http://localhost:30093/a1-policy/v2
   service_name: 'rAppEnergySaver'
   service_version: 'v1'
   service_display_name: 'rApp Energy Saver'
