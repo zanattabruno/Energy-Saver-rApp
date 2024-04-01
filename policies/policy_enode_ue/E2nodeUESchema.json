@@ -15,15 +15,15 @@
           "type": "object",
           "properties": {
             "mcc": {
-              "type": "number",
+              "type": "string",
               "description": "Mobile Country Code identifying the country of the mobile subscriber."
             },
             "mnc": {
-              "type": "number",
+              "type": "string",
               "description": "Mobile Network Code identifying the home network of the mobile subscriber."
             },
             "nodebid": {
-              "type": "number",
+              "type": "string",
               "description": "NodeB Identifier uniquely identifying a NodeB within a mobile network."
             },
             "UEList": {
@@ -33,7 +33,7 @@
                 "type": "object",
                 "properties": {
                   "imsi": {
-                    "type": "number",
+                    "type": "string",
                     "description": "International Mobile Subscriber Identity uniquely identifying a user of a cellular network."
                   }
                 },
@@ -47,7 +47,8 @@
           "required": [
             "mcc",
             "mnc",
-            "nodebid"          ],
+            "nodebid"
+          ],
           "additionalProperties": false
         }
       }
