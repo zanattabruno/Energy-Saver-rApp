@@ -61,4 +61,19 @@ def update_radio_power(config, radiopower):
                 except requests.exceptions.RequestException as e:
                     results[node_id] = (False, f"Request exception: {str(e)}")
                     logger.error(f"Request exception for {node_id}: {str(e)}")
+            else:
+                payload = {"gain": config['O1']['radioPower_off_gain']}
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+                try:
+                    response = requests.post(url, json=payload, headers=headers)
+                    if response.status_code == 204:
+                        results[node_id] = (True, "Successfully updated gain.")
+                        logger.info(f"Successfully updated gain for {node_id}. Gain: {config['O1']['radioPower_off_gain']}")
+                    else:
+                        results[node_id] = (False, f"Failed to update gain. Status code: {response.status_code}, Response: {response.text}")
+                        logger.warning(f"Failed to update gain for {node_id}. Status code: {response.status_code}, Response: {response.text}")
+                except requests.exceptions.RequestException as e:
+                    results[node_id] = (False, f"Request exception: {str(e)}")
+                    logger.error(f"Request exception for {node_id}: {str(e)}")
+
     return results

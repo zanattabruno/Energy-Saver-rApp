@@ -21,6 +21,7 @@ O1:
     - '72411_00000002': 'http://e2node2-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'
     - '72411_00000003': 'http://e2node3-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'
     - '72411_00000004': 'http://e2node4-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'
+  radioPower_off_gain: -1
 
 # Configuration settings for the energy-saver-rapp application trigger
 # Just one can be enabled at the same time
