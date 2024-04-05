@@ -11,8 +11,8 @@ def define_model(UEs, E2Ns, total_BW):
     E2s_power = [e2.ID for e2 in E2Ns]
     
     mdl = CpoModel()
-    mdl.x = mdl.binary_var_dict(admission_pos, name="x")
-    mdl.y = mdl.integer_var_dict(E2s_power, name="y")
+    mdl.x = mdl.binary_var_dict(admission_pos, name="x") # which E2N is user admitted
+    mdl.y = mdl.integer_var_dict(E2s_power, name="y") # transmit power
     mdl.z = mdl.binary_var_dict(E2s_power, name="z")
     mdl.r = mdl.integer_var_dict(admission_pos, name="r")
 
@@ -35,9 +35,10 @@ def define_model(UEs, E2Ns, total_BW):
     for ue in UEs:
         mdl.add(mdl.sum(mdl.x[ue.ID, e2.ID] for e2 in E2Ns) == 1) # , "all users must be admitted")
         for e2 in E2Ns:
-            int_and_noise = 10/ue.channel_gain[e2.ID]
-            print(ue.ID, e2.ID, int_and_noise)
-            mdl.add((1 + ((10 ** ((mdl.y[e2.ID]/10) - 3))/int_and_noise)) ** mdl.r[(ue.ID, e2.ID)] >= mdl.x[ue.ID, e2.ID] * 2**(ue.demand))
+            signal_power = 30 # 1W = 30dbm annd channel_gain is in dbm
+            IN_dbm = signal_power - ue.channel_gain[e2.ID]
+            IN_watt = 10 ** ((IN_dbm/10) - 3)
+            mdl.add((1 + ((10 ** ((mdl.y[e2.ID]/10) - 3))/IN_watt)) ** mdl.r[(ue.ID, e2.ID)] >= mdl.x[ue.ID, e2.ID] * 2**(ue.demand))
 
     for e2 in E2Ns:
         mdl.add(e2.max_power * mdl.z[e2.ID] >= mdl.y[e2.ID]) # , "if e2 is not used (Z = 0), Y must be zero")
@@ -68,7 +69,7 @@ def define_model(UEs, E2Ns, total_BW):
             else:
                 E2_bandwidth[i[1]] += int(msol[mdl.r[i]])
                 E2N_info[i[1]]["bandwidth"] += int(msol[mdl.r[i]])
-            tp_ue = msol[mdl.r[i]] * math.log2(1 + ((10 ** ((msol[mdl.y[i[1]]]/10) - 3))/(10/UEs[i[0]].channel_gain[i[1]])))
+            tp_ue = msol[mdl.r[i]] * math.log2(1 + ((10 ** ((msol[mdl.y[i[1]]]/10) - 3))/(signal_power/10**((signal_power - UEs[i[0]].channel_gain[i[1]])/10 - 3))))
             users_TP.append(tp_ue)
             print("UE {} \t in \t E2N {}\t signal power {} \t interference&noise {:.3f} \t BW {} MHz \tdemand {} Mbps\t\t throughput {} Mbps".format(i[0], 
                                                                                                         i[1], 
