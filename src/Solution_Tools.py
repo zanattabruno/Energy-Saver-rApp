@@ -1,3 +1,5 @@
+import json
+import random
 import requests
 import logging
 
@@ -77,3 +79,44 @@ def update_radio_power(config, radiopower):
                     logger.error(f"Request exception for {node_id}: {str(e)}")
 
     return results
+
+def update_handover_policy(config, solution):
+    # Convert the input dictionary to the desired JSON format
+    # This example assumes some values need to be hardcoded or generated. Adjust as needed.
+    converted_json = {
+        "ric_id": config['nonrtric']['ric_id'],
+        "policy_id": str(random.randint(1, 999)),
+        "service_id": config['nonrtric']['service_name'],
+        "policy_data": {
+            "E2NodeList": [
+                {
+                    # Assuming 'nodebid' from 'GNB_config' needs to be converted to 'nodebid' in 'E2NodeList'
+                    "mcc": "310",
+                    "mnc": "260",
+                    "nodebid": solution['GNB_config'][0]['nodebid'],
+                    "UEList": [{"imsi": user['IMSI']} for user in solution['Users admission']]
+                }
+                # If there were multiple nodes in 'GNB_config', you'd loop through them here
+            ]
+        },
+        "policytype_id": config['nonrtric']['policytype_id']
+    }
+    
+    # URL to post the data
+    url = f"{config['nonrtric']['base_url_pms']}/policies"
+    logger.debug(f'Policy instance:{json.dumps(converted_json, indent=4)}')
+    # Headers to indicate JSON content
+    headers = {"Content-Type": "application/json"}
+    try:
+        # Make the PUT request
+        response = requests.put(url, json=converted_json, headers=headers)
+        
+        # Check if the POST request was successful
+        if response.status_code == 200:
+            logger.info("Policy instance update successfully.")
+        elif response.status_code == 201:
+            logger.info("Policy instance created successfully.")
+        else:
+            logger.error(f"Failed to post data. Status code: {response.status_code}, Response: {response.text}")
+    except requests.exceptions.RequestException as e:
+        logger.exception(f"Request exception: {str(e)}")

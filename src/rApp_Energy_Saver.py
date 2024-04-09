@@ -1,5 +1,6 @@
 import logging
 import argparse
+import pprint
 import yaml
 import json
 import random
@@ -8,7 +9,7 @@ import threading
 
 from rApp_catalogue_client import rAppCatalalogueClient
 from UE_Generator import integrate_estimates_with_original_data
-from Solution_Tools import extract_radio_power, update_radio_power
+from Solution_Tools import extract_radio_power, update_radio_power, update_handover_policy
 from UE_Consumer import UEConsumer
 from time import sleep
 from optimal_model.run_model import run_optimization
@@ -179,9 +180,13 @@ if __name__ == "__main__":
             ue_input_dict['users'] = integrate_estimates_with_original_data(ue_input_list)
             # Run the optimization process with the prepared UE input data.
             solution = run_optimization(ue_input_dict)
+            # Update the handover policy based on the results of the optimization.
+            update_handover_policy(config, solution)
             # Update the radio power configuration based on the optimization solution.
             update_radio_power(config, extract_radio_power(solution))
     
+    #last_run_time = time.time()
+
     # Main loop that runs as long as user variation trigger is enabled in the configuration.
     while config["trigger"]["user_variation"]["enable"]:
         # Synchronize access to UE (User Equipment) data using a condition variable.
@@ -202,6 +207,8 @@ if __name__ == "__main__":
                 if last_run_number_of_ues * (1 + config["trigger"]["user_variation"]["percentage"]) < len(ue_input_list):
                     # Run the optimization process using the prepared UE data.
                     solution = run_optimization(ue_input_dict)
+                    # Update the handover policy based on the results of the optimization.
+                    update_handover_policy(config, solution)
                     # Update the radio power configuration based on the results of the optimization.
                     update_radio_power(config, extract_radio_power(solution))
                     # Update the counters for the number of UEs and the last run time after a successful optimization.
@@ -209,11 +216,7 @@ if __name__ == "__main__":
                     last_run_time = time.time()
                 else:
                     # Log information indicating that the user equipment variation condition for optimization has not been met.
-                    logger.info("Ue variation for running optimization is not met.")
+                    logger.info("UE variation for running optimization is not met.")
             else:
                 # Log information indicating that the minimum time requirement since the last optimization run has not been reached.
                 logger.info("Minimum time since last run is not reached.")
-
-
-
-

@@ -47,7 +47,7 @@ nonrtric:
   service_display_name: 'rApp Energy Saver'
   service_description: 'Energy-saving application for optimizing power consumption of E2Nodes'
   ric_id: 'ric4'
-  radiopower_policytype_id: '4'
+  policytype_id: '5'
 
 # Kafka configuration
 kafka:
