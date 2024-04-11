@@ -4,7 +4,9 @@ RUN apt update && apt upgrade -y && apt autoremove -y
 
 WORKDIR /app
 
-COPY src/. .
+COPY src/rApp_catalogue_client.py src/rApp_Energy_Saver.py src/Solution_Tools.py src/Solution_Tools.py src/UE_Consumer.py src/UE_Generator.py /app/
+
+COPY src/optimal_model/. /app/optimal_model/
 
 COPY requirements.txt .
 
