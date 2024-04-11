@@ -1,6 +1,5 @@
 import logging
 import argparse
-import pprint
 import yaml
 import json
 import random
@@ -42,7 +41,7 @@ def parse_arguments():
         argparse.Namespace: Parsed arguments.
     """
     parser = argparse.ArgumentParser(description='RIC Optimizer arguments.')
-    parser.add_argument('--config', type=str, default=DEFAULT_CONFIG_FILE_PATH,
+    parser.add_argument('-c','--config', type=str, default=DEFAULT_CONFIG_FILE_PATH,
                         help='Path to the configuration file.')
     return parser.parse_args()
 
