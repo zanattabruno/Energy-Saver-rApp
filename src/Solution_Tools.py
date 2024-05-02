@@ -91,9 +91,9 @@ def update_handover_policy(config, solution):
             "E2NodeList": [
                 {
                     # Assuming 'nodebid' from 'GNB_config' needs to be converted to 'nodebid' in 'E2NodeList'
-                    "mcc": "310",
-                    "mnc": "260",
-                    "nodebid": solution['GNB_config'][0]['nodebid'],
+                    "mcc": solution['GNB_config'][0]['nodebid'][:3],
+                    "mnc": solution['GNB_config'][0]['nodebid'][3:6],
+                    "nodebid": solution['GNB_config'][0]['nodebid'][7:],
                     "UEList": [{"imsi": user['IMSI']} for user in solution['Users admission']]
                 }
                 # If there were multiple nodes in 'GNB_config', you'd loop through them here
