@@ -184,8 +184,6 @@ if __name__ == "__main__":
             # Update the radio power configuration based on the optimization solution.
             update_radio_power(config, extract_radio_power(solution))
     
-    #last_run_time = time.time()
-
     # Main loop that runs as long as user variation trigger is enabled in the configuration.
     while config["trigger"]["user_variation"]["enable"]:
         # Synchronize access to UE (User Equipment) data using a condition variable.
