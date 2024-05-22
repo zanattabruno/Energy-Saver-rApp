@@ -46,10 +46,10 @@ app:
 
   O1:
     E2Nodes:
-      - '72411_00000001': 'http://e2node1-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'  # The URL for E2Node 1.
-      - '72411_00000002': 'http://e2node2-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'  # The URL for E2Node 2.
-      - '72411_00000003': 'http://e2node3-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'  # The URL for E2Node 3.
-      - '72411_00000004': 'http://e2node4-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'  # The URL for E2Node 4.
+      - '72401100000001': 'http://e2node1-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'  # The URL for E2Node 1.
+      - '72401100000002': 'http://e2node2-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'  # The URL for E2Node 2.
+      - '72401100000003': 'http://e2node3-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'  # The URL for E2Node 3.
+      - '72401100000004': 'http://e2node4-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'  # The URL for E2Node 4.
     radioPower_off_gain: -1  # The radio power off gain.
 
   trigger:
@@ -59,7 +59,7 @@ app:
     user_variation:
       enable: True  # Enable or disable user variation.
       percentage: 0.2  # The percentage of variation.
-      min_time_since_last_run_seconds: 10  # The minimum time since the last run in seconds.
+      min_time_since_last_run_seconds: 60  # The minimum time since the last run in seconds.
 
   nonrtric:
     base_url_rApp_catalogue: 'http://rappcatalogueservice.nonrtric.svc.cluster.local:9085/services'  # The base URL for the rApp catalogue service.
