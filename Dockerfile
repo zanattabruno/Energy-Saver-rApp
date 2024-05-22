@@ -10,6 +10,6 @@ COPY src/optimal_model/. /app/optimal_model/
 
 COPY requirements.txt .
 
-RUN /usr/local/bin/python3.8 -m pip install --upgrade pip && /usr/local/bin/python3.8 -m pip install --no-cache-dir -r requirements.txt
+RUN /usr/local/bin/python3.8 -m pip install --upgrade pip && /usr/local/bin/python3.8 -m pip install -r requirements.txt
 
 ENTRYPOINT ["sleep","999999999"]
