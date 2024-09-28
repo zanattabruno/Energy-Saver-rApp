@@ -36,7 +36,7 @@ trigger:
     # The percentage of the user variation. Should be between 0 and 1.
     percentage: 0.2
     # Minimum time since the last run in seconds
-    min_time_since_last_run_seconds: 10
+    min_time_since_last_run_seconds: 90
 
 # Non-RT RIC configuration
 nonrtric:

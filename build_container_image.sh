@@ -9,7 +9,7 @@ fi
 
 # Define the Docker image name and tag
 IMAGE_NAME="rapp_energy-saver"
-TAG="latest"
+TAG="v1"
 
 # Define the Docker Hub username
 DOCKER_HUB_USERNAME="zanattabruno"
