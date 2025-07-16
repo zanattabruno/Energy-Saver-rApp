@@ -48,16 +48,21 @@ def collect_sinr_metrics(config, logger):
         config (dict): Configuration dictionary
         logger (logging.Logger): Logger instance
     Returns:
-        dict: Organized SINR metrics
+        tuple: (dict: Organized SINR metrics, int: Number of distinct IMSIs)
     """
     prometheus_url = config.get('nearrtric', {}).get('prometheus_url')
     if not prometheus_url:
         logger.error("Prometheus URL not configured in config.yaml")
-        return {}
+        return {}, 0
     prom_client = PrometheusClient(prometheus_url)
     logger.info("Collecting all SINR metrics")
     metrics = prom_client.collect_sinr_metrics()
-    return metrics if metrics else {}
+    
+    # Count distinct IMSIs - the keys of the metrics dict are the IMSIs
+    imsi_count = len(metrics) if metrics else 0
+    logger.info(f"Found {imsi_count} distinct IMSIs")
+    
+    return (metrics if metrics else {}, imsi_count)
 
 
 if __name__ == "__main__":
@@ -76,4 +81,6 @@ if __name__ == "__main__":
     else:
         logger.error("Failed to register service.")
 
-    print(collect_sinr_metrics(config, logger))
+    metrics, imsi_count = collect_sinr_metrics(config, logger)
+    print(f"Metrics: {metrics}")
+    print(f"Distinct IMSIs count: {imsi_count}")
