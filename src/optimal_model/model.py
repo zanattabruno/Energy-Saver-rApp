@@ -56,26 +56,41 @@ def define_model(UEs, E2Ns, total_BW):
     users_TP = []
     RF_energy = 0
 
+    # Check if we have a valid solution
+    if msol is None:
+        print("No solution found by the optimizer")
+        return [connections, E2N_info, {"max_BW": total_BW, "used_BW": 0, "users_TP": [], "users_PW": [], "total_energy": 0, "RF_energy": 0, "PW_energy": 0}]
+
     for i in E2s_power:
-        if msol[mdl.z[i]] > 0.8:
+        z_value = msol.get_value(mdl.z[i])
+        if z_value is not None and z_value > 0.8:
             RF_energy += E2Ns[i].RF_consumption
 
     for i in admission_pos:
-        if msol[mdl.x[i]] > 0.8:
+        x_value = msol.get_value(mdl.x[i])
+        if x_value is not None and x_value > 0.8:
             connections[i[0]] = i[1]
+            r_value = msol.get_value(mdl.r[i])
+            y_value = msol.get_value(mdl.y[i[1]])
+            
+            if r_value is None or y_value is None:
+                continue
+                
             if i[1] not in E2_bandwidth.keys():
-                E2_bandwidth[i[1]] = int(msol[mdl.r[i]])
-                E2N_info[i[1]] = {"bandwidth": int(msol[mdl.r[i]]), "power": int(msol[mdl.y[i[1]]])}
+                E2_bandwidth[i[1]] = int(r_value)
+                E2N_info[i[1]] = {"bandwidth": int(r_value), "power": int(y_value)}
             else:
-                E2_bandwidth[i[1]] += int(msol[mdl.r[i]])
-                E2N_info[i[1]]["bandwidth"] += int(msol[mdl.r[i]])
-            tp_ue = msol[mdl.r[i]] * math.log2(1 + ((10 ** ((msol[mdl.y[i[1]]]/10) - 3))/(signal_power/10**((signal_power - UEs[i[0]].channel_gain[i[1]])/10 - 3))))
+                E2_bandwidth[i[1]] += int(r_value)
+                E2N_info[i[1]]["bandwidth"] += int(r_value)
+                
+            signal_power = 30
+            tp_ue = r_value * math.log2(1 + ((10 ** ((y_value/10) - 3))/(signal_power/10**((signal_power - UEs[i[0]].channel_gain[i[1]])/10 - 3))))
             users_TP.append(tp_ue)
             print("UE {} \t in \t E2N {}\t signal power {} \t interference&noise {:.3f} \t BW {} MHz \tdemand {} Mbps\t\t throughput {} Mbps".format(i[0], 
                                                                                                         i[1], 
-                                                                                                        msol[mdl.y[i[1]]],
+                                                                                                        y_value,
                                                                                                         10/UEs[i[0]].channel_gain[i[1]],
-                                                                                                        msol[mdl.r[i]], 
+                                                                                                        r_value, 
                                                                                                         UEs[i[0]].demand,
                                                                                                         int(tp_ue)))
 
@@ -84,7 +99,10 @@ def define_model(UEs, E2Ns, total_BW):
         if e2.ID in E2_bandwidth:
             used_BW += E2_bandwidth[e2.ID]
     
-    total_energy = msol.get_objective_value()
+    print(f"Total bandwidth used: {used_BW} MHz out of {total_BW} MHz")
+    print(f"Users admitted: {len(connections)} out of {len(UEs)}")
+    
+    total_energy = msol.get_objective_value() if msol else 0
 
     total_energy = float(total_energy)
 

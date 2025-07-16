@@ -2,6 +2,7 @@ import logging
 import argparse
 import yaml
 import json
+import os
 
 
 from rApp_catalogue_client import rAppCatalalogueClient
@@ -65,6 +66,74 @@ def collect_sinr_metrics(config, logger):
     return (metrics if metrics else {}, imsi_count)
 
 
+def transform_metrics_for_optimization(metrics):
+    """
+    Transform Prometheus SINR metrics into the format expected by the optimization model.
+    
+    Args:
+        metrics (dict): Organized SINR metrics from Prometheus in format:
+                       {imsi: {gnbid: {pci: sinr_value}}}
+    
+    Returns:
+        dict: Transformed metrics in format expected by run_optimization:
+              {"users": [{"IMSI": imsi, "nodebid": gnbid, "sinr": sinr_value, ...}]}
+    """
+    logger = logging.getLogger(__name__)
+    
+    if not metrics:
+        logger.warning("No metrics provided for transformation")
+        return {"users": []}
+    
+    transformed_users = []
+    
+    for imsi, gnb_data in metrics.items():
+        for gnbid, pci_data in gnb_data.items():
+            for pci, sinr_value in pci_data.items():
+                user_entry = {
+                    "IMSI": imsi,
+                    "nodebid": gnbid,
+                    "sinr": sinr_value,
+                    "rrc_state": 1,  # Default value
+                    "rsrp": -60,     # Default value (could be enhanced with actual RSRP metrics)
+                    "rsrq": 1        # Default value (could be enhanced with actual RSRQ metrics)
+                }
+                transformed_users.append(user_entry)
+    
+    logger.info(f"Transformed {len(transformed_users)} user entries for optimization")
+    return {"users": transformed_users}
+
+
+def run_energy_optimization(metrics, logger):
+    """
+    Run the energy optimization model using the collected metrics.
+    
+    Args:
+        metrics (dict): SINR metrics from Prometheus
+        logger (logging.Logger): Logger instance
+    
+    Returns:
+        dict: Optimization solution with user admissions and GNB configurations
+    """
+    from optimal_model.run_model import run_optimization
+    
+    # Transform metrics to the format expected by the optimization model
+    transformed_input = transform_metrics_for_optimization(metrics)
+    
+    if not transformed_input["users"]:
+        logger.error("No users found in metrics for optimization")
+        return {"Users admission": [], "GNB_config": []}
+    
+    logger.info(f"Running optimization with {len(transformed_input['users'])} user entries")
+    
+    try:
+        optimization_result = run_optimization(transformed_input)
+        logger.info("Optimization completed successfully")
+        return optimization_result
+    except Exception as e:
+        logger.error(f"Optimization failed: {e}")
+        return {"Users admission": [], "GNB_config": []}
+
+
 if __name__ == "__main__":
 
     args = parse_arguments()
@@ -84,3 +153,14 @@ if __name__ == "__main__":
     metrics, imsi_count = collect_sinr_metrics(config, logger)
     print(f"Metrics: {metrics}")
     print(f"Distinct IMSIs count: {imsi_count}")
+    
+    # Run energy optimization using the collected metrics
+    optimization_result = run_energy_optimization(metrics, logger)
+    print(f"Optimization result: {optimization_result}")
+    
+    # Save the optimization result to a file
+    import os
+    output_file = os.path.join(os.path.dirname(__file__), "optimal_model", "solution.json")
+    with open(output_file, 'w') as f:
+        json.dump(optimization_result, f, indent=4)
+    logger.info(f"Optimization result saved to {output_file}")
