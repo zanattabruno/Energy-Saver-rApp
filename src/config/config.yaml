@@ -4,24 +4,9 @@ logging:
 
 # Energy
 E2NodeList:
-  - mcc: 310
-    mnc: 260
-    nodebid: 10001
-    radioPower: 18.5
-  - mcc: 311
-    mnc: 480
-    nodebid: 10002
-    radioPower: 22.0
-
-
-# Configuration for O1 comunications
-O1:
-  E2Nodes:
-    - '72401100000001': 'http://e2node1-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'
-    - '72401100000002': 'http://e2node2-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'
-    - '72401100000003': 'http://e2node3-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'
-    - '72401100000004': 'http://e2node4-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'
-  radioPower_off_gain: -1
+  - mcc: 724
+    mnc: 11
+    nodebid: 1
 
 # Configuration settings for the energy-saver-rapp application trigger
 # Just one can be enabled at the same time
@@ -49,15 +34,5 @@ nonrtric:
   ric_id: 'ric4'
   policytype_id: '5'
 
-# Kafka configuration
-kafka:
-  bootstrap_servers: "kafka.smo.svc.cluster.local" # Kafka host
-  port: 9092 # Kafka port number
-  enable_auto_commit: True
-  auto_commit_interval_ms: 6000
-  auto_offset_reset: "latest"
-  group_id: "rAppEnergySaver"
-  client_id: "rAppEnergySaver"
-  poll_timeout_seconds: 1
-  topics:
-  - ues
+nearrtric:
+  prometheus_url: 'http://prometheus.nonrtric.svc.cluster.local'
