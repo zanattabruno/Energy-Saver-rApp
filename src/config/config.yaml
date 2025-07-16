@@ -35,4 +35,4 @@ nonrtric:
   policytype_id: '5'
 
 nearrtric:
-  prometheus_url: 'http://prometheus.nonrtric.svc.cluster.local'
+  prometheus_url: 'http://r4-infrastructure-prometheus-server.ricplt.svc.cluster.local'

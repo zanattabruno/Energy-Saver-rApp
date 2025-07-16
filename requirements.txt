@@ -4,6 +4,7 @@ confluent-kafka==2.*
 docplex==2.*
 idna==3.*
 importlib-metadata==4.*
+prometheus-client==0.22.*
 PyYAML==6.*
 requests==2.*
 six==1.*

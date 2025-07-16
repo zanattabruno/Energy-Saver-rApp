@@ -1,9 +1,11 @@
 import logging
 import argparse
 import yaml
+import json
 
 
 from rApp_catalogue_client import rAppCatalalogueClient
+from prometheus_metrics_collector import PrometheusClient
 
 
 DEFAULT_CONFIG_FILE_PATH = "src/config/config.yaml"
@@ -38,6 +40,26 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def collect_sinr_metrics(config, logger):
+    """
+    Collect SINR metrics from Prometheus and return as a dictionary.
+    
+    Args:
+        config (dict): Configuration dictionary
+        logger (logging.Logger): Logger instance
+    Returns:
+        dict: Organized SINR metrics
+    """
+    prometheus_url = config.get('nearrtric', {}).get('prometheus_url')
+    if not prometheus_url:
+        logger.error("Prometheus URL not configured in config.yaml")
+        return {}
+    prom_client = PrometheusClient(prometheus_url)
+    logger.info("Collecting all SINR metrics")
+    metrics = prom_client.collect_sinr_metrics()
+    return metrics if metrics else {}
+
+
 if __name__ == "__main__":
 
     args = parse_arguments()
@@ -45,9 +67,13 @@ if __name__ == "__main__":
     with open(args.config, 'r') as file:
         config = yaml.safe_load(file)
     logger = setup_logging(config)
+    
+    # Original rApp catalogue registration functionality
     register = rAppCatalalogueClient(args.config)
     
     if register.register_service():
         logger.info("Service successfully registered on rApp catalogue.")
     else:
         logger.error("Failed to register service.")
+
+    print(collect_sinr_metrics(config, logger))
