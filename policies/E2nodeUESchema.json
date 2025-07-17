@@ -22,9 +22,13 @@
               "type": "string",
               "description": "Mobile Network Code identifying the home network of the mobile subscriber."
             },
-            "nodebid": {
+            "gnbid": {
               "type": "string",
-              "description": "NodeB Identifier uniquely identifying a NodeB within a mobile network."
+              "description": "gNodeB Identifier uniquely identifying a gNodeB within a mobile network."
+            },
+            "pci": {
+              "type": "string",
+              "description": "Physical Cell Identifier of a given cell managed by a gNodeB."
             },
             "UEList": {
               "type": "array",
@@ -47,7 +51,8 @@
           "required": [
             "mcc",
             "mnc",
-            "nodebid"
+            "gnbid",
+            "pci"
           ],
           "additionalProperties": false
         }
