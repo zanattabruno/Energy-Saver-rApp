@@ -69,6 +69,7 @@ def collect_sinr_metrics(config, logger):
 def transform_metrics_for_optimization(metrics):
     """
     Transform Prometheus SINR metrics into the format expected by the optimization model.
+    Create multiple PCI options per gNB to enable PCI minimization.
     
     Args:
         metrics (dict): Organized SINR metrics from Prometheus in format:
@@ -76,7 +77,7 @@ def transform_metrics_for_optimization(metrics):
     
     Returns:
         dict: Transformed metrics in format expected by run_optimization:
-              {"users": [{"IMSI": imsi, "nodebid": gnbid, "sinr": sinr_value, ...}]}
+              {"users": [{"IMSI": imsi, "nodebid": gnbid, "pci": pci, "sinr": sinr_value, ...}]}
     """
     logger = logging.getLogger(__name__)
     
@@ -84,14 +85,53 @@ def transform_metrics_for_optimization(metrics):
         logger.warning("No metrics provided for transformation")
         return {"users": []}
     
-    transformed_users = []
-    
+    # First, collect all unique gNBs and their PCIs
+    gnb_pci_map = {}
     for imsi, gnb_data in metrics.items():
         for gnbid, pci_data in gnb_data.items():
-            for pci, sinr_value in pci_data.items():
+            if gnbid not in gnb_pci_map:
+                gnb_pci_map[gnbid] = set()
+            for pci in pci_data.keys():
+                gnb_pci_map[gnbid].add(pci)
+    
+    logger.info(f"Found gNBs and their PCIs: {gnb_pci_map}")
+    
+    # Add debug information about the data structure
+    total_measurements = sum(len(pci_data) for gnb_data in metrics.values() for pci_data in gnb_data.values())
+    logger.info(f"Total IMSI-gNB-PCI measurements: {total_measurements}")
+    logger.info(f"Unique IMSIs: {len(metrics)}")
+    logger.info(f"Unique gNBs: {len(gnb_pci_map)}")
+    total_pcis = sum(len(pcis) for pcis in gnb_pci_map.values())
+    logger.info(f"Total PCIs across all gNBs: {total_pcis}")
+    
+    transformed_users = []
+    
+    # For each IMSI, create entries for all possible gNB-PCI combinations
+    # This gives the optimizer choices between different PCIs for the same gNB
+    for imsi, gnb_data in metrics.items():
+        for gnbid, pci_data in gnb_data.items():
+            # For each gNB this user can connect to, add all available PCIs
+            # If the user has a measurement for a specific PCI, use that SINR
+            # Otherwise, use a slightly degraded SINR to represent interference/sub-optimal conditions
+            available_pcis = gnb_pci_map.get(gnbid, set())
+            
+            for pci in available_pcis:
+                if pci in pci_data:
+                    # User has actual measurement for this PCI
+                    sinr_value = pci_data[pci]
+                else:
+                    # User doesn't have measurement for this PCI, estimate with penalty
+                    # Use the best SINR from this gNB but with some degradation
+                    best_sinr = max(pci_data.values()) if pci_data else 50
+                    # Add more significant penalty and some randomness to encourage diversity
+                    import random
+                    penalty_factor = 0.6 + random.uniform(0, 0.2)  # 40-60% degradation
+                    sinr_value = best_sinr * penalty_factor
+                
                 user_entry = {
                     "IMSI": imsi,
                     "nodebid": gnbid,
+                    "pci": pci,
                     "sinr": sinr_value,
                     "rrc_state": 1,  # Default value
                     "rsrp": -60,     # Default value (could be enhanced with actual RSRP metrics)
