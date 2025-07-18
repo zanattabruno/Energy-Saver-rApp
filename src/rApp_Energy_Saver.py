@@ -41,53 +41,29 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def collect_sinr_metrics(config, logger):
+def collect_sinr_and_mcc_mnc_with_client(prometheus_client, logger):
     """
-    Collect SINR metrics from Prometheus and return as a dictionary.
-    
-    Args:
-        config (dict): Configuration dictionary
-        logger (logging.Logger): Logger instance
-    Returns:
-        tuple: (dict: Organized SINR metrics, int: Number of distinct IMSIs)
-    """
-    prometheus_url = config.get('nearrtric', {}).get('prometheus_url')
-    if not prometheus_url:
-        logger.error("Prometheus URL not configured in config.yaml")
-        return {}, 0
-    prom_client = PrometheusClient(prometheus_url)
-    logger.info("Collecting all SINR metrics")
-    metrics = prom_client.collect_sinr_metrics()
-    
-    # Count distinct IMSIs - the keys of the metrics dict are the IMSIs
-    imsi_count = len(metrics) if metrics else 0
-    logger.info(f"Found {imsi_count} distinct IMSIs")
-    
-    return (metrics if metrics else {}, imsi_count)
-
-
-def collect_sinr_metrics_with_client(prometheus_client, logger):
-    """
-    Collect SINR metrics using an existing Prometheus client.
+    Collect SINR metrics AND MCC/MNC using an existing Prometheus client in a single call.
+    This reduces the number of Prometheus calls from 2 to 1.
     
     Args:
         prometheus_client (PrometheusClient): Existing Prometheus client instance
         logger (logging.Logger): Logger instance
     Returns:
-        tuple: (dict: Organized SINR metrics, int: Number of distinct IMSIs)
+        tuple: (dict: Organized SINR metrics, int: Number of distinct IMSIs, dict: MCC/MNC data)
     """
     if not prometheus_client:
         logger.error("Prometheus client not provided")
-        return {}, 0
+        return {}, 0, None
         
-    logger.info("Collecting all SINR metrics")
-    metrics = prometheus_client.collect_sinr_metrics()
+    logger.info("Collecting SINR metrics and MCC/MNC in single call")
+    metrics, mcc_mnc_data = prometheus_client.collect_sinr_metrics_and_mcc_mnc()
     
     # Count distinct IMSIs - the keys of the metrics dict are the IMSIs
     imsi_count = len(metrics) if metrics else 0
     logger.info(f"Found {imsi_count} distinct IMSIs")
     
-    return (metrics if metrics else {}, imsi_count)
+    return (metrics if metrics else {}, imsi_count, mcc_mnc_data)
 
 
 def transform_metrics_for_optimization(metrics):
@@ -228,16 +204,18 @@ if __name__ == "__main__":
     else:
         logger.error("Failed to register service.")
 
-    metrics, imsi_count = collect_sinr_metrics_with_client(prometheus_client, logger)
+    # Collect SINR metrics and MCC/MNC data in a single optimized call
+    metrics, imsi_count, mcc_mnc_data = collect_sinr_and_mcc_mnc_with_client(prometheus_client, logger)
     print(f"Metrics: {metrics}")
     print(f"Distinct IMSIs count: {imsi_count}")
+    print(f"MCC/MNC data: {mcc_mnc_data}")
     
     # Run energy optimization using the collected metrics
     optimization_result = run_energy_optimization(metrics, logger)
     print(f"Optimization result: {optimization_result}")
     
-    # Parse optimization result to A1 policy instance format
-    policy_instance = policy_manager.parse_optimization_to_policy(optimization_result)
+    # Parse optimization result to A1 policy instance format using pre-fetched MCC/MNC data
+    policy_instance = policy_manager.parse_optimization_to_policy(optimization_result, mcc_mnc_data)
     
     if policy_instance is None:
         logger.error("Failed to create policy instance - MCC/MNC information not available from Prometheus")

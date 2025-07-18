@@ -83,6 +83,8 @@ class PrometheusClient:
         """
         Collect and organize SINR metrics from Prometheus using the official prometheus_client library.
         
+        DEPRECATED: Use collect_sinr_metrics_and_mcc_mnc() for better performance.
+        
         Returns:
             Dict: Organized metrics in the format:
             {
@@ -93,11 +95,27 @@ class PrometheusClient:
                 }
             }
         """
-        self.logger.info("Collecting SINR metrics from Prometheus")
+        self.logger.warning("collect_sinr_metrics is deprecated. Consider using collect_sinr_metrics_and_mcc_mnc() for better performance.")
+        
+        # Use the optimized method and return only the metrics part
+        metrics, _ = self.collect_sinr_metrics_and_mcc_mnc()
+        return metrics
+    
+    def collect_sinr_metrics_and_mcc_mnc(self) -> tuple[Dict[str, Dict[str, Dict[str, float]]], Optional[Dict[str, str]]]:
+        """
+        Collect and organize SINR metrics AND extract MCC/MNC from Prometheus in a single call.
+        
+        Returns:
+            tuple: (organized_metrics, mcc_mnc_data)
+            - organized_metrics: Dict in the format {imsi: {gnbid: {pci: sinr_value}}}
+            - mcc_mnc_data: Dict with 'mcc' and 'mnc' keys, or None if not found
+        """
+        self.logger.info("Collecting SINR metrics and MCC/MNC from Prometheus in single call")
         
         # First try to get metrics from the direct metrics endpoint
         metric_families = self.get_metrics_from_endpoint()
         organized_metrics = defaultdict(lambda: defaultdict(dict))
+        mcc_mnc_data = None
         
         if metric_families:
             # Parse using prometheus_client parser
@@ -110,7 +128,15 @@ class PrometheusClient:
                         imsi = labels.get('imsi')
                         gnbid = labels.get('gnbid')
                         pci = labels.get('pci')
+                        mcc = labels.get('mcc')
+                        mnc = labels.get('mnc')
                         
+                        # Extract MCC/MNC if found and not yet collected
+                        if mcc and mnc and not mcc_mnc_data:
+                            mcc_mnc_data = {'mcc': str(mcc), 'mnc': str(mnc)}
+                            self.logger.info(f"Found MCC: {mcc}, MNC: {mnc} from Prometheus metrics")
+                        
+                        # Extract SINR metrics
                         if imsi and gnbid and pci is not None:
                             try:
                                 organized_metrics[imsi][gnbid][pci] = float(value)
@@ -131,7 +157,15 @@ class PrometheusClient:
                     imsi = metric_labels.get('imsi')
                     gnbid = metric_labels.get('gnbid')
                     pci = metric_labels.get('pci')
+                    mcc = metric_labels.get('mcc')
+                    mnc = metric_labels.get('mnc')
                     
+                    # Extract MCC/MNC if found and not yet collected
+                    if mcc and mnc and not mcc_mnc_data:
+                        mcc_mnc_data = {'mcc': str(mcc), 'mnc': str(mnc)}
+                        self.logger.info(f"Found MCC: {mcc}, MNC: {mnc} from Prometheus query API")
+                    
+                    # Extract SINR metrics
                     if imsi and gnbid and pci is not None:
                         try:
                             sinr_value = float(metric_value[1])
@@ -146,48 +180,8 @@ class PrometheusClient:
             for gnbid, pci_data in gnb_data.items():
                 result_dict[imsi][gnbid] = dict(pci_data)
         
-        self.logger.info(f"Collected SINR metrics for {len(result_dict)} IMSIs")
-        return result_dict
-    
-    def collect_mcc_mnc_from_metrics(self) -> Optional[Dict[str, str]]:
-        """
-        Extract MCC and MNC values from Prometheus SINR metrics.
+        if not mcc_mnc_data:
+            self.logger.warning("Could not extract MCC and MNC from Prometheus metrics")
         
-        Returns:
-            Optional[Dict[str, str]]: Dictionary with 'mcc' and 'mnc' keys, or None if not found
-        """
-        self.logger.info("Extracting MCC and MNC from Prometheus metrics")
-        
-        # First try to get metrics from the direct metrics endpoint
-        metric_families = self.get_metrics_from_endpoint()
-        
-        if metric_families:
-            # Parse using prometheus_client parser
-            for family in metric_families:
-                if family.name == 'e2sm_rc_report_style4_sinr':
-                    for sample in family.samples:
-                        labels = sample.labels
-                        mcc = labels.get('mcc')
-                        mnc = labels.get('mnc')
-                        
-                        if mcc and mnc:
-                            self.logger.info(f"Found MCC: {mcc}, MNC: {mnc} from Prometheus metrics")
-                            return {'mcc': str(mcc), 'mnc': str(mnc)}
-        
-        # If no metrics found from direct endpoint, try query API
-        self.logger.info("No MCC/MNC found from direct endpoint, trying query API")
-        query = "e2sm_rc_report_style4_sinr"
-        result = self.query_metric(query)
-        
-        if result:
-            for metric_data in result.get('result', []):
-                metric_labels = metric_data.get('metric', {})
-                mcc = metric_labels.get('mcc')
-                mnc = metric_labels.get('mnc')
-                
-                if mcc and mnc:
-                    self.logger.info(f"Found MCC: {mcc}, MNC: {mnc} from Prometheus query API")
-                    return {'mcc': str(mcc), 'mnc': str(mnc)}
-        
-        self.logger.warning("Could not extract MCC and MNC from Prometheus metrics")
-        return None
+        self.logger.info(f"Collected SINR metrics for {len(result_dict)} IMSIs and {'found' if mcc_mnc_data else 'did not find'} MCC/MNC")
+        return result_dict, mcc_mnc_data

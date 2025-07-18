@@ -29,31 +29,31 @@ class PolicyManager:
         self.prometheus_client = prometheus_client
         self.logger = logging.getLogger(__name__)
     
-    def parse_optimization_to_policy(self, optimization_result):
+    def parse_optimization_to_policy(self, optimization_result, mcc_mnc_data=None):
         """
         Parse optimization result into A1 policy instance format.
         
         Args:
             optimization_result (dict): Result from energy optimization containing Users admission and GNB_config
+            mcc_mnc_data (dict, optional): Pre-fetched MCC/MNC data to avoid additional Prometheus calls
         
         Returns:
             dict: A1 policy instance in the format expected by the Near-RT RIC
         """
         self.logger.info("Parsing optimization result to A1 policy instance format")
         
-        # Get MCC and MNC from Prometheus metrics - required for policy creation
-        mcc_mnc_data = None
-        if self.prometheus_client:
-            mcc_mnc_data = self.prometheus_client.collect_mcc_mnc_from_metrics()
-        
-        if not mcc_mnc_data:
-            self.logger.error("MCC and MNC information is required from Prometheus metrics but not available")
-            self.logger.error("Cannot create policy instance without MCC/MNC from Prometheus")
+        # MCC/MNC data is now required to be pre-fetched for optimal performance
+        if not mcc_mnc_data or 'mcc' not in mcc_mnc_data or 'mnc' not in mcc_mnc_data:
+            self.logger.error("MCC/MNC data is required but not provided")
+            self.logger.error("Please ensure MCC/MNC data is collected during SINR metrics collection")
+            self.logger.error("Cannot create policy instance without MCC/MNC data")
             return None
+        
+        self.logger.info("Using pre-fetched MCC/MNC data (optimized - no additional Prometheus call)")
         
         default_mcc = mcc_mnc_data['mcc']
         default_mnc = mcc_mnc_data['mnc']
-        self.logger.info(f"Using MCC: {default_mcc}, MNC: {default_mnc} from Prometheus metrics")
+        self.logger.info(f"Using MCC: {default_mcc}, MNC: {default_mnc} from pre-fetched data")
         
         ric_id = self.config.get('policy', {}).get('ric_id', 'ric4')
         service_id = self.config.get('policy', {}).get('service_id', 'EnergySaverApp')
