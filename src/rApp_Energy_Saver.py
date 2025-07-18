@@ -1,237 +1,444 @@
+"""
+Energy Saver rApp Main Application.
+
+This module implements the main application logic for the Energy Saver rApp,
+including metrics collection, optimization, and policy deployment.
+"""
+
 import logging
 import argparse
-import yaml
 import json
-import os
+import sys
+from pathlib import Path
+from typing import Dict, Any, Tuple, Optional
 
-from rApp_catalogue_client import rAppCatalalogueClient
+# Local imports
+from utils.config_manager import ConfigManager
+from utils.logging_manager import LoggingManager, log_function_calls
+from utils.exceptions import (
+    ConfigurationError,
+    MetricsCollectionError,
+    OptimizationError,
+    RAppRegistrationError
+)
+from rApp_catalogue_client import RAppCatalogueClient, rAppCatalalogueClient
 from prometheus_metrics_collector import PrometheusClient
 from policy_manager import PolicyManager
 
-
+# Constants
 DEFAULT_CONFIG_FILE_PATH = "src/config/config.yaml"
+APPLICATION_NAME = "Energy Saver rApp"
+APPLICATION_VERSION = "1.0.0"
 
-def setup_logging(config):
+
+class EnergySaverApplication:
     """
-    Configures logging settings for the application.
+    Main application class for the Energy Saver rApp.
+    
+    This class orchestrates the entire energy saving workflow including:
+    - Configuration management
+    - Metrics collection from Prometheus
+    - Energy optimization
+    - Policy deployment
+    """
+    
+    def __init__(self, config_path: str):
+        """
+        Initialize the Energy Saver application.
+        
+        Args:
+            config_path (str): Path to the configuration file
+            
+        Raises:
+            ConfigurationError: If configuration is invalid
+        """
+        self.config_manager = ConfigManager(config_path)
+        self.logger = self._setup_logging()
+        
+        # Initialize components
+        self.prometheus_client: Optional[PrometheusClient] = None
+        self.policy_manager: Optional[PolicyManager] = None
+        self.rapp_client: Optional[rAppCatalalogueClient] = None
+        
+        self.logger.info(f"Initializing {APPLICATION_NAME} v{APPLICATION_VERSION}")
+        self._initialize_components()
+    
+    def _setup_logging(self) -> logging.Logger:
+        """
+        Set up logging configuration.
+        
+        Returns:
+            logging.Logger: Configured logger
+        """
+        logging_config = self.config_manager.get_logging_config()
+        LoggingManager.setup_logging(
+            level=logging_config['level'],
+            log_format=logging_config['format']
+        )
+        return LoggingManager.get_logger(__name__)
+    
+    @log_function_calls()
+    def _initialize_components(self) -> None:
+        """
+        Initialize application components.
+        
+        Raises:
+            ConfigurationError: If component initialization fails
+        """
+        try:
+            # Initialize Prometheus client
+            prometheus_config = self.config_manager.get_prometheus_config()
+            prometheus_url = prometheus_config.get('url')
+            
+            if not prometheus_url:
+                raise ConfigurationError("Prometheus URL not configured")
+            
+            self.prometheus_client = PrometheusClient(prometheus_url)
+            self.logger.info(f"Initialized Prometheus client with URL: {prometheus_url}")
+            
+            # Initialize Policy Manager
+            self.policy_manager = PolicyManager(
+                self.config_manager.config, 
+                self.prometheus_client
+            )
+            self.logger.info("Initialized Policy Manager")
+            
+            # Initialize rApp Catalogue client
+            self.rapp_client = rAppCatalalogueClient(self.config_manager.config_path)
+            self.logger.info("Initialized rApp Catalogue client")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to initialize components: {e}")
+            raise ConfigurationError(f"Component initialization failed: {e}")
+    
+    @log_function_calls()
+    def collect_metrics_and_mcc_mnc(self) -> Tuple[Dict[str, Any], int, Optional[Dict[str, str]]]:
+        """
+        Collect SINR metrics and MCC/MNC data from Prometheus.
+        
+        Returns:
+            Tuple containing:
+            - Dict: Organized SINR metrics
+            - int: Number of distinct IMSIs
+            - Dict: MCC/MNC data
+            
+        Raises:
+            MetricsCollectionError: If metrics collection fails
+        """
+        if not self.prometheus_client:
+            raise MetricsCollectionError("Prometheus client not initialized")
+        
+        try:
+            self.logger.info("Starting metrics collection from Prometheus")
+            metrics, mcc_mnc_data = self.prometheus_client.collect_sinr_metrics_and_mcc_mnc()
+            
+            imsi_count = len(metrics) if metrics else 0
+            self.logger.info(f"Successfully collected metrics for {imsi_count} distinct IMSIs")
+            
+            if not mcc_mnc_data:
+                self.logger.warning("MCC/MNC data not available in metrics")
+            else:
+                self.logger.info(f"Collected MCC/MNC data: {mcc_mnc_data}")
+            
+            return metrics, imsi_count, mcc_mnc_data
+            
+        except Exception as e:
+            self.logger.error(f"Metrics collection failed: {e}")
+            raise MetricsCollectionError(f"Failed to collect metrics: {e}")
+    
+    @log_function_calls()
+    def transform_metrics_for_optimization(self, metrics: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Transform Prometheus SINR metrics for optimization model.
+        
+        Args:
+            metrics (Dict): Raw SINR metrics from Prometheus
+            
+        Returns:
+            Dict: Transformed metrics for optimization
+        """
+        if not metrics:
+            self.logger.warning("No metrics provided for transformation")
+            return {"users": []}
+        
+        # Collect all unique gNBs and their PCIs
+        gnb_pci_map = {}
+        for imsi, gnb_data in metrics.items():
+            for gnbid, pci_data in gnb_data.items():
+                if gnbid not in gnb_pci_map:
+                    gnb_pci_map[gnbid] = set()
+                for pci in pci_data.keys():
+                    gnb_pci_map[gnbid].add(pci)
+        
+        self.logger.info(f"Found gNBs and their PCIs: {gnb_pci_map}")
+        
+        # Log statistics
+        total_measurements = sum(
+            len(pci_data) 
+            for gnb_data in metrics.values() 
+            for pci_data in gnb_data.values()
+        )
+        
+        self.logger.info(f"Metrics transformation statistics:")
+        self.logger.info(f"  - Total IMSI-gNB-PCI measurements: {total_measurements}")
+        self.logger.info(f"  - Unique IMSIs: {len(metrics)}")
+        self.logger.info(f"  - Unique gNBs: {len(gnb_pci_map)}")
+        
+        total_pcis = sum(len(pcis) for pcis in gnb_pci_map.values())
+        self.logger.info(f"  - Total PCIs across all gNBs: {total_pcis}")
+        
+        transformed_users = []
+        
+        # Transform metrics to optimization format
+        for imsi, gnb_data in metrics.items():
+            for gnbid, pci_data in gnb_data.items():
+                available_pcis = gnb_pci_map.get(gnbid, set())
+                
+                for pci in available_pcis:
+                    if pci in pci_data:
+                        sinr_value = pci_data[pci]
+                    else:
+                        # Estimate SINR with penalty for unmeasured PCIs
+                        best_sinr = max(pci_data.values()) if pci_data else 50
+                        import random
+                        penalty_factor = 0.6 + random.uniform(0, 0.2)
+                        sinr_value = best_sinr * penalty_factor
+                    
+                    user_entry = {
+                        "IMSI": imsi,
+                        "nodebid": gnbid,
+                        "pci": pci,
+                        "sinr": sinr_value,
+                        "rrc_state": 1,
+                        "rsrp": -60,
+                        "rsrq": 1
+                    }
+                    transformed_users.append(user_entry)
+        
+        self.logger.info(f"Transformed {len(transformed_users)} user entries for optimization")
+        return {"users": transformed_users}
+    
+    @log_function_calls()
+    def run_energy_optimization(self, metrics: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute the energy optimization algorithm.
+        
+        Args:
+            metrics (Dict): SINR metrics from Prometheus
+            
+        Returns:
+            Dict: Optimization solution
+            
+        Raises:
+            OptimizationError: If optimization fails
+        """
+        try:
+            from optimal_model.run_model import run_optimization
+            
+            transformed_input = self.transform_metrics_for_optimization(metrics)
+            
+            if not transformed_input["users"]:
+                self.logger.error("No users found in metrics for optimization")
+                return {"Users admission": [], "GNB_config": []}
+            
+            self.logger.info(f"Running optimization with {len(transformed_input['users'])} user entries")
+            
+            optimization_result = run_optimization(transformed_input)
+            self.logger.info("Energy optimization completed successfully")
+            
+            # Log optimization results summary
+            users_admission = optimization_result.get('Users admission', [])
+            gnb_config = optimization_result.get('GNB_config', [])
+            
+            self.logger.info(f"Optimization results summary:")
+            self.logger.info(f"  - Users admitted: {len(users_admission)}")
+            self.logger.info(f"  - GNB configurations: {len(gnb_config)}")
+            
+            return optimization_result
+            
+        except Exception as e:
+            self.logger.error(f"Energy optimization failed: {e}")
+            raise OptimizationError(f"Optimization process failed: {e}")
+    
+    @log_function_calls()
+    def register_with_catalogue(self) -> bool:
+        """
+        Register the application with the rApp catalogue.
+        
+        Returns:
+            bool: True if registration successful, False otherwise
+            
+        Raises:
+            RAppRegistrationError: If registration fails
+        """
+        if not self.rapp_client:
+            raise RAppRegistrationError("rApp catalogue client not initialized")
+        
+        try:
+            self.logger.info("Registering service with rApp catalogue")
+            success = self.rapp_client.register_service()
+            
+            if success:
+                self.logger.info("Service successfully registered with rApp catalogue")
+            else:
+                self.logger.error("Failed to register service with rApp catalogue")
+            
+            return success
+            
+        except Exception as e:
+            self.logger.error(f"rApp catalogue registration error: {e}")
+            raise RAppRegistrationError(f"Registration failed: {e}")
+    
+    @log_function_calls()
+    def deploy_policy(self, optimization_result: Dict[str, Any], mcc_mnc_data: Optional[Dict[str, str]]) -> bool:
+        """
+        Deploy the optimization result as a policy instance.
+        
+        Args:
+            optimization_result (Dict): Result from energy optimization
+            mcc_mnc_data (Dict, optional): MCC/MNC data for policy creation
+            
+        Returns:
+            bool: True if deployment successful, False otherwise
+        """
+        if not self.policy_manager:
+            self.logger.error("Policy manager not initialized")
+            return False
+        
+        try:
+            self.logger.info("Creating policy instance from optimization result")
+            policy_instance = self.policy_manager.parse_optimization_to_policy(
+                optimization_result, 
+                mcc_mnc_data
+            )
+            
+            if policy_instance is None:
+                self.logger.error("Failed to create policy instance - MCC/MNC information not available")
+                return False
+            
+            self.logger.debug(f"Generated policy instance: {json.dumps(policy_instance, indent=2)}")
+            
+            # Deploy the policy
+            deployment_success = self.policy_manager.deploy_policy_instance(policy_instance)
+            
+            if deployment_success:
+                policy_id = policy_instance.get('policy_id')
+                self.logger.info(f"Policy successfully deployed with ID: {policy_id}")
+            else:
+                self.logger.error("Policy deployment failed")
+            
+            return deployment_success
+            
+        except Exception as e:
+            self.logger.error(f"Policy deployment error: {e}")
+            return False
+    
+    @log_function_calls()
+    def run(self) -> int:
+        """
+        Execute the main application workflow.
+        
+        Returns:
+            int: Exit code (0 for success, 1 for failure)
+        """
+        try:
+            self.logger.info(f"Starting {APPLICATION_NAME} main workflow")
+            
+            # Step 1: Register with rApp catalogue
+            if not self.register_with_catalogue():
+                self.logger.error("Application startup failed at rApp registration")
+                return 1
+            
+            # Step 2: Collect metrics and MCC/MNC data
+            metrics, imsi_count, mcc_mnc_data = self.collect_metrics_and_mcc_mnc()
+            
+            self.logger.info(f"Collected metrics for {imsi_count} IMSIs")
+            
+            # Step 3: Run energy optimization
+            optimization_result = self.run_energy_optimization(metrics)
+            
+            # Step 4: Deploy policy
+            deployment_success = self.deploy_policy(optimization_result, mcc_mnc_data)
+            
+            if deployment_success:
+                self.logger.info(f"{APPLICATION_NAME} completed successfully")
+                return 0
+            else:
+                self.logger.error(f"{APPLICATION_NAME} completed with policy deployment failure")
+                return 1
+                
+        except Exception as e:
+            self.logger.error(f"{APPLICATION_NAME} failed with exception: {e}")
+            return 1
 
-    Args:
-        config (dict): Configuration settings including the desired logging level.
+
+def parse_arguments() -> argparse.Namespace:
+    """
+    Parse command line arguments for the Energy Saver rApp.
 
     Returns:
-        logging.Logger: Configured logger instance.
+        argparse.Namespace: Parsed command line arguments
     """
-    level = config.get('logging', {}).get('level', 'INFO').upper()  # Default to INFO if not specified
-    numeric_level = getattr(logging, level, None)
-    if not isinstance(numeric_level, int):
-        raise ValueError(f'Invalid log level: {level}')
-    logging.basicConfig(level=numeric_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    return logging.getLogger(__name__)
-
-def parse_arguments():
-    """
-    Parses command line arguments specific to the RIC Optimizer.
-
-    Returns:
-        argparse.Namespace: Parsed arguments.
-    """
-    parser = argparse.ArgumentParser(description='RIC Optimizer arguments.')
-    parser.add_argument('-c','--config', type=str, default=DEFAULT_CONFIG_FILE_PATH,
-                        help='Path to the configuration file.')
+    parser = argparse.ArgumentParser(
+        description=f'{APPLICATION_NAME} - Optimize energy consumption of E2Nodes',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    
+    parser.add_argument(
+        '-c', '--config',
+        type=str,
+        default=DEFAULT_CONFIG_FILE_PATH,
+        help='Path to the configuration file'
+    )
+    
+    parser.add_argument(
+        '--version',
+        action='version',
+        version=f'{APPLICATION_NAME} {APPLICATION_VERSION}'
+    )
+    
+    parser.add_argument(
+        '--log-level',
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+        help='Override logging level from configuration'
+    )
+    
     return parser.parse_args()
 
 
-def collect_sinr_and_mcc_mnc_with_client(prometheus_client, logger):
+def main() -> int:
     """
-    Collect SINR metrics AND MCC/MNC using an existing Prometheus client in a single call.
-    This reduces the number of Prometheus calls from 2 to 1.
-    
-    Args:
-        prometheus_client (PrometheusClient): Existing Prometheus client instance
-        logger (logging.Logger): Logger instance
-    Returns:
-        tuple: (dict: Organized SINR metrics, int: Number of distinct IMSIs, dict: MCC/MNC data)
-    """
-    if not prometheus_client:
-        logger.error("Prometheus client not provided")
-        return {}, 0, None
-        
-    logger.info("Collecting SINR metrics and MCC/MNC in single call")
-    metrics, mcc_mnc_data = prometheus_client.collect_sinr_metrics_and_mcc_mnc()
-    
-    # Count distinct IMSIs - the keys of the metrics dict are the IMSIs
-    imsi_count = len(metrics) if metrics else 0
-    logger.info(f"Found {imsi_count} distinct IMSIs")
-    
-    return (metrics if metrics else {}, imsi_count, mcc_mnc_data)
-
-
-def transform_metrics_for_optimization(metrics):
-    """
-    Transform Prometheus SINR metrics into the format expected by the optimization model.
-    Create multiple PCI options per gNB to enable PCI minimization.
-    
-    Args:
-        metrics (dict): Organized SINR metrics from Prometheus in format:
-                       {imsi: {gnbid: {pci: sinr_value}}}
+    Main entry point for the Energy Saver rApp application.
     
     Returns:
-        dict: Transformed metrics in format expected by run_optimization:
-              {"users": [{"IMSI": imsi, "nodebid": gnbid, "pci": pci, "sinr": sinr_value, ...}]}
+        int: Exit code (0 for success, 1 for failure)
     """
-    logger = logging.getLogger(__name__)
-    
-    if not metrics:
-        logger.warning("No metrics provided for transformation")
-        return {"users": []}
-    
-    # First, collect all unique gNBs and their PCIs
-    gnb_pci_map = {}
-    for imsi, gnb_data in metrics.items():
-        for gnbid, pci_data in gnb_data.items():
-            if gnbid not in gnb_pci_map:
-                gnb_pci_map[gnbid] = set()
-            for pci in pci_data.keys():
-                gnb_pci_map[gnbid].add(pci)
-    
-    logger.info(f"Found gNBs and their PCIs: {gnb_pci_map}")
-    
-    # Add debug information about the data structure
-    total_measurements = sum(len(pci_data) for gnb_data in metrics.values() for pci_data in gnb_data.values())
-    logger.info(f"Total IMSI-gNB-PCI measurements: {total_measurements}")
-    logger.info(f"Unique IMSIs: {len(metrics)}")
-    logger.info(f"Unique gNBs: {len(gnb_pci_map)}")
-    total_pcis = sum(len(pcis) for pcis in gnb_pci_map.values())
-    logger.info(f"Total PCIs across all gNBs: {total_pcis}")
-    
-    transformed_users = []
-    
-    # For each IMSI, create entries for all possible gNB-PCI combinations
-    # This gives the optimizer choices between different PCIs for the same gNB
-    for imsi, gnb_data in metrics.items():
-        for gnbid, pci_data in gnb_data.items():
-            # For each gNB this user can connect to, add all available PCIs
-            # If the user has a measurement for a specific PCI, use that SINR
-            # Otherwise, use a slightly degraded SINR to represent interference/sub-optimal conditions
-            available_pcis = gnb_pci_map.get(gnbid, set())
-            
-            for pci in available_pcis:
-                if pci in pci_data:
-                    # User has actual measurement for this PCI
-                    sinr_value = pci_data[pci]
-                else:
-                    # User doesn't have measurement for this PCI, estimate with penalty
-                    # Use the best SINR from this gNB but with some degradation
-                    best_sinr = max(pci_data.values()) if pci_data else 50
-                    # Add more significant penalty and some randomness to encourage diversity
-                    import random
-                    penalty_factor = 0.6 + random.uniform(0, 0.2)  # 40-60% degradation
-                    sinr_value = best_sinr * penalty_factor
-                
-                user_entry = {
-                    "IMSI": imsi,
-                    "nodebid": gnbid,
-                    "pci": pci,
-                    "sinr": sinr_value,
-                    "rrc_state": 1,  # Default value
-                    "rsrp": -60,     # Default value (could be enhanced with actual RSRP metrics)
-                    "rsrq": 1        # Default value (could be enhanced with actual RSRQ metrics)
-                }
-                transformed_users.append(user_entry)
-    
-    logger.info(f"Transformed {len(transformed_users)} user entries for optimization")
-    return {"users": transformed_users}
-
-
-def run_energy_optimization(metrics, logger):
-    """
-    Run the energy optimization model using the collected metrics.
-    
-    Args:
-        metrics (dict): SINR metrics from Prometheus
-        logger (logging.Logger): Logger instance
-    
-    Returns:
-        dict: Optimization solution with user admissions and GNB configurations
-    """
-    from optimal_model.run_model import run_optimization
-    
-    # Transform metrics to the format expected by the optimization model
-    transformed_input = transform_metrics_for_optimization(metrics)
-    
-    if not transformed_input["users"]:
-        logger.error("No users found in metrics for optimization")
-        return {"Users admission": [], "GNB_config": []}
-    
-    logger.info(f"Running optimization with {len(transformed_input['users'])} user entries")
-    
     try:
-        optimization_result = run_optimization(transformed_input)
-        logger.info("Optimization completed successfully")
-        return optimization_result
+        # Parse command line arguments
+        args = parse_arguments()
+        
+        # Validate configuration file exists
+        config_path = Path(args.config)
+        if not config_path.exists():
+            print(f"Error: Configuration file not found: {config_path}")
+            return 1
+        
+        # Create and run the application
+        app = EnergySaverApplication(str(config_path))
+        
+        # Override log level if specified
+        if args.log_level:
+            logging.getLogger().setLevel(getattr(logging, args.log_level))
+        
+        return app.run()
+        
+    except KeyboardInterrupt:
+        print("\nApplication interrupted by user")
+        return 1
     except Exception as e:
-        logger.error(f"Optimization failed: {e}")
-        return {"Users admission": [], "GNB_config": []}
+        print(f"Application failed with error: {e}")
+        return 1
 
 
 if __name__ == "__main__":
-
-    args = parse_arguments()
-    # Load the configuration from the file
-    with open(args.config, 'r') as file:
-        config = yaml.safe_load(file)
-    logger = setup_logging(config)
-    
-    # Initialize Prometheus client for metrics collection
-    prometheus_url = config.get('nearrtric', {}).get('prometheus_url')
-    prometheus_client = None
-    if prometheus_url:
-        prometheus_client = PrometheusClient(prometheus_url)
-        logger.info(f"Initialized Prometheus client with URL: {prometheus_url}")
-    else:
-        logger.error("Prometheus URL not configured - MCC/MNC information is required from Prometheus metrics")
-        logger.error("Application cannot proceed without Prometheus configuration")
-        exit(1)
-    
-    # Initialize Policy Manager with Prometheus client for MCC/MNC extraction
-    policy_manager = PolicyManager(config, prometheus_client)
-    
-    # Original rApp catalogue registration functionality
-    register = rAppCatalalogueClient(args.config)
-    
-    if register.register_service():
-        logger.info("Service successfully registered on rApp catalogue.")
-    else:
-        logger.error("Failed to register service.")
-
-    # Collect SINR metrics and MCC/MNC data in a single optimized call
-    metrics, imsi_count, mcc_mnc_data = collect_sinr_and_mcc_mnc_with_client(prometheus_client, logger)
-    print(f"Metrics: {metrics}")
-    print(f"Distinct IMSIs count: {imsi_count}")
-    print(f"MCC/MNC data: {mcc_mnc_data}")
-    
-    # Run energy optimization using the collected metrics
-    optimization_result = run_energy_optimization(metrics, logger)
-    print(f"Optimization result: {optimization_result}")
-    
-    # Parse optimization result to A1 policy instance format using pre-fetched MCC/MNC data
-    policy_instance = policy_manager.parse_optimization_to_policy(optimization_result, mcc_mnc_data)
-    
-    if policy_instance is None:
-        logger.error("Failed to create policy instance - MCC/MNC information not available from Prometheus")
-        logger.error("Policy deployment aborted")
-        print("Policy creation failed: MCC/MNC information required from Prometheus metrics")
-        exit(1)
-    
-    print(f"Policy instance: {policy_instance}")
-    
-    # Log the optimization result and policy instance in debug mode
-    logger.debug(f"Optimization result: {json.dumps(optimization_result, indent=2)}")
-    logger.debug(f"Generated policy instance: {json.dumps(policy_instance, indent=2)}")
-    
-    # Deploy the policy instance to Near-RT RIC
-    deployment_success = policy_manager.deploy_policy_instance(policy_instance)
-    if deployment_success:
-        print(f"Policy successfully deployed with ID: {policy_instance.get('policy_id')}")
-    else:
-        print("Policy deployment failed. Check logs for details.")
+    sys.exit(main())
