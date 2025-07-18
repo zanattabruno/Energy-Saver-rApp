@@ -66,6 +66,30 @@ def collect_sinr_metrics(config, logger):
     return (metrics if metrics else {}, imsi_count)
 
 
+def collect_sinr_metrics_with_client(prometheus_client, logger):
+    """
+    Collect SINR metrics using an existing Prometheus client.
+    
+    Args:
+        prometheus_client (PrometheusClient): Existing Prometheus client instance
+        logger (logging.Logger): Logger instance
+    Returns:
+        tuple: (dict: Organized SINR metrics, int: Number of distinct IMSIs)
+    """
+    if not prometheus_client:
+        logger.error("Prometheus client not provided")
+        return {}, 0
+        
+    logger.info("Collecting all SINR metrics")
+    metrics = prometheus_client.collect_sinr_metrics()
+    
+    # Count distinct IMSIs - the keys of the metrics dict are the IMSIs
+    imsi_count = len(metrics) if metrics else 0
+    logger.info(f"Found {imsi_count} distinct IMSIs")
+    
+    return (metrics if metrics else {}, imsi_count)
+
+
 def transform_metrics_for_optimization(metrics):
     """
     Transform Prometheus SINR metrics into the format expected by the optimization model.
@@ -182,8 +206,19 @@ if __name__ == "__main__":
         config = yaml.safe_load(file)
     logger = setup_logging(config)
     
-    # Initialize Policy Manager
-    policy_manager = PolicyManager(config)
+    # Initialize Prometheus client for metrics collection
+    prometheus_url = config.get('nearrtric', {}).get('prometheus_url')
+    prometheus_client = None
+    if prometheus_url:
+        prometheus_client = PrometheusClient(prometheus_url)
+        logger.info(f"Initialized Prometheus client with URL: {prometheus_url}")
+    else:
+        logger.error("Prometheus URL not configured - MCC/MNC information is required from Prometheus metrics")
+        logger.error("Application cannot proceed without Prometheus configuration")
+        exit(1)
+    
+    # Initialize Policy Manager with Prometheus client for MCC/MNC extraction
+    policy_manager = PolicyManager(config, prometheus_client)
     
     # Original rApp catalogue registration functionality
     register = rAppCatalalogueClient(args.config)
@@ -193,7 +228,7 @@ if __name__ == "__main__":
     else:
         logger.error("Failed to register service.")
 
-    metrics, imsi_count = collect_sinr_metrics(config, logger)
+    metrics, imsi_count = collect_sinr_metrics_with_client(prometheus_client, logger)
     print(f"Metrics: {metrics}")
     print(f"Distinct IMSIs count: {imsi_count}")
     
@@ -203,6 +238,13 @@ if __name__ == "__main__":
     
     # Parse optimization result to A1 policy instance format
     policy_instance = policy_manager.parse_optimization_to_policy(optimization_result)
+    
+    if policy_instance is None:
+        logger.error("Failed to create policy instance - MCC/MNC information not available from Prometheus")
+        logger.error("Policy deployment aborted")
+        print("Policy creation failed: MCC/MNC information required from Prometheus metrics")
+        exit(1)
+    
     print(f"Policy instance: {policy_instance}")
     
     # Log the optimization result and policy instance in debug mode

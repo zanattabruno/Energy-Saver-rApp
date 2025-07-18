@@ -36,8 +36,6 @@ nonrtric:
 
 # Policy configuration defaults
 policy:
-  default_mcc: '310'
-  default_mnc: '260'
   ric_id: 'ric4'
   service_id: 'EnergySaverApp'
   policy_type_id: '5'

@@ -9,6 +9,7 @@ import json
 import time
 import logging
 import requests
+from prometheus_metrics_collector import PrometheusClient
 
 
 class PolicyManager:
@@ -16,14 +17,16 @@ class PolicyManager:
     Manages A1 policy instances for the Energy Saver application.
     """
     
-    def __init__(self, config):
+    def __init__(self, config, prometheus_client=None):
         """
         Initialize the PolicyManager with configuration.
         
         Args:
             config (dict): Configuration dictionary
+            prometheus_client (PrometheusClient, optional): Prometheus client for fetching MCC/MNC
         """
         self.config = config
+        self.prometheus_client = prometheus_client
         self.logger = logging.getLogger(__name__)
     
     def parse_optimization_to_policy(self, optimization_result):
@@ -38,9 +41,20 @@ class PolicyManager:
         """
         self.logger.info("Parsing optimization result to A1 policy instance format")
         
-        # Extract default values from config or use sensible defaults
-        default_mcc = self.config.get('policy', {}).get('default_mcc', '310')
-        default_mnc = self.config.get('policy', {}).get('default_mnc', '260')
+        # Get MCC and MNC from Prometheus metrics - required for policy creation
+        mcc_mnc_data = None
+        if self.prometheus_client:
+            mcc_mnc_data = self.prometheus_client.collect_mcc_mnc_from_metrics()
+        
+        if not mcc_mnc_data:
+            self.logger.error("MCC and MNC information is required from Prometheus metrics but not available")
+            self.logger.error("Cannot create policy instance without MCC/MNC from Prometheus")
+            return None
+        
+        default_mcc = mcc_mnc_data['mcc']
+        default_mnc = mcc_mnc_data['mnc']
+        self.logger.info(f"Using MCC: {default_mcc}, MNC: {default_mnc} from Prometheus metrics")
+        
         ric_id = self.config.get('policy', {}).get('ric_id', 'ric4')
         service_id = self.config.get('policy', {}).get('service_id', 'EnergySaverApp')
         policy_type_id = self.config.get('policy', {}).get('policy_type_id', '5')

@@ -148,3 +148,46 @@ class PrometheusClient:
         
         self.logger.info(f"Collected SINR metrics for {len(result_dict)} IMSIs")
         return result_dict
+    
+    def collect_mcc_mnc_from_metrics(self) -> Optional[Dict[str, str]]:
+        """
+        Extract MCC and MNC values from Prometheus SINR metrics.
+        
+        Returns:
+            Optional[Dict[str, str]]: Dictionary with 'mcc' and 'mnc' keys, or None if not found
+        """
+        self.logger.info("Extracting MCC and MNC from Prometheus metrics")
+        
+        # First try to get metrics from the direct metrics endpoint
+        metric_families = self.get_metrics_from_endpoint()
+        
+        if metric_families:
+            # Parse using prometheus_client parser
+            for family in metric_families:
+                if family.name == 'e2sm_rc_report_style4_sinr':
+                    for sample in family.samples:
+                        labels = sample.labels
+                        mcc = labels.get('mcc')
+                        mnc = labels.get('mnc')
+                        
+                        if mcc and mnc:
+                            self.logger.info(f"Found MCC: {mcc}, MNC: {mnc} from Prometheus metrics")
+                            return {'mcc': str(mcc), 'mnc': str(mnc)}
+        
+        # If no metrics found from direct endpoint, try query API
+        self.logger.info("No MCC/MNC found from direct endpoint, trying query API")
+        query = "e2sm_rc_report_style4_sinr"
+        result = self.query_metric(query)
+        
+        if result:
+            for metric_data in result.get('result', []):
+                metric_labels = metric_data.get('metric', {})
+                mcc = metric_labels.get('mcc')
+                mnc = metric_labels.get('mnc')
+                
+                if mcc and mnc:
+                    self.logger.info(f"Found MCC: {mcc}, MNC: {mnc} from Prometheus query API")
+                    return {'mcc': str(mcc), 'mnc': str(mnc)}
+        
+        self.logger.warning("Could not extract MCC and MNC from Prometheus metrics")
+        return None
