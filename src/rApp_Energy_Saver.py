@@ -4,9 +4,9 @@ import yaml
 import json
 import os
 
-
 from rApp_catalogue_client import rAppCatalalogueClient
 from prometheus_metrics_collector import PrometheusClient
+from policy_manager import PolicyManager
 
 
 DEFAULT_CONFIG_FILE_PATH = "src/config/config.yaml"
@@ -182,6 +182,9 @@ if __name__ == "__main__":
         config = yaml.safe_load(file)
     logger = setup_logging(config)
     
+    # Initialize Policy Manager
+    policy_manager = PolicyManager(config)
+    
     # Original rApp catalogue registration functionality
     register = rAppCatalalogueClient(args.config)
     
@@ -198,9 +201,17 @@ if __name__ == "__main__":
     optimization_result = run_energy_optimization(metrics, logger)
     print(f"Optimization result: {optimization_result}")
     
-    # Save the optimization result to a file
-    import os
-    output_file = os.path.join(os.path.dirname(__file__), "optimal_model", "solution.json")
-    with open(output_file, 'w') as f:
-        json.dump(optimization_result, f, indent=4)
-    logger.info(f"Optimization result saved to {output_file}")
+    # Parse optimization result to A1 policy instance format
+    policy_instance = policy_manager.parse_optimization_to_policy(optimization_result)
+    print(f"Policy instance: {policy_instance}")
+    
+    # Log the optimization result and policy instance in debug mode
+    logger.debug(f"Optimization result: {json.dumps(optimization_result, indent=2)}")
+    logger.debug(f"Generated policy instance: {json.dumps(policy_instance, indent=2)}")
+    
+    # Deploy the policy instance to Near-RT RIC
+    deployment_success = policy_manager.deploy_policy_instance(policy_instance)
+    if deployment_success:
+        print(f"Policy successfully deployed with ID: {policy_instance.get('policy_id')}")
+    else:
+        print("Policy deployment failed. Check logs for details.")
