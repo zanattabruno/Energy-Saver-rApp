@@ -208,6 +208,9 @@ class PrometheusClient:
             success = self._collect_from_query_api(organized_metrics, mcc_mnc_data)
         
         if not success:
+            self.logger.error("SINR metrics 'e2sm_rc_report_style4_sinr' are not available in Prometheus")
+            self.logger.error(f"Prometheus server at {self.prometheus_url} is accessible but does not contain the expected metrics")
+            self.logger.error("Please verify that the E2 nodes are properly configured and reporting SINR metrics")
             raise MetricsCollectionError("Failed to collect metrics using both direct endpoint and query API")
         
         # Convert defaultdict to regular dict for cleaner output
@@ -239,15 +242,22 @@ class PrometheusClient:
         try:
             metric_families = self.get_metrics_from_endpoint()
             if not metric_families:
+                self.logger.warning("No metric families returned from metrics endpoint")
                 return False
             
             # Parse using prometheus_client parser
             found_metrics = False
+            metric_names = []
             for family in metric_families:
+                metric_names.append(family.name)
                 if family.name == 'e2sm_rc_report_style4_sinr':
                     found_metrics = True
                     for sample in family.samples:
                         self._process_sample(sample, organized_metrics, mcc_mnc_data)
+            
+            if not found_metrics:
+                self.logger.warning(f"SINR metric 'e2sm_rc_report_style4_sinr' not found in {len(metric_families)} metric families from direct endpoint")
+                self.logger.debug(f"Available metrics include: {metric_names[:10]}{'...' if len(metric_names) > 10 else ''}")
             
             return found_metrics
             
@@ -275,12 +285,21 @@ class PrometheusClient:
             result = self.query_metric(query)
             
             if not result:
+                self.logger.warning("Query API returned no result for SINR metrics")
+                return False
+            
+            results = result.get('result', [])
+            if not results:
+                self.logger.warning(f"Query API returned empty result set for metric '{query}'")
                 return False
             
             found_metrics = False
-            for metric_data in result.get('result', []):
+            for metric_data in results:
                 found_metrics = True
                 self._process_query_result(metric_data, organized_metrics, mcc_mnc_data)
+            
+            if found_metrics:
+                self.logger.info(f"Successfully collected {len(results)} SINR metrics from query API")
             
             return found_metrics
             
