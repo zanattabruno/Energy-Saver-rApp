@@ -11,6 +11,7 @@ import json
 import sys
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional
+from time import sleep
 
 # Local imports
 from utils.config_manager import ConfigManager
@@ -323,6 +324,7 @@ class EnergySaverApplication:
                 self.logger.info(f"  - gNBs configured: {len(gnb_config)}")
                 
                 # Log antenna status after deployment
+                sleep(1)  # Allow time for policy to apply
                 antenna_status = self.policy_manager.get_current_antenna_status()
                 if antenna_status:
                     active_antennas = [ant for ant in antenna_status if ant.get('gain', 0) > 0]
