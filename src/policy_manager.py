@@ -14,6 +14,7 @@ from pathlib import Path
 
 from utils.logging_manager import LoggingManager, log_function_calls
 from utils.exceptions import PolicyDeploymentError, ConfigurationError
+from o1_interface_client import O1InterfaceClient
 
 
 class PolicyManager:
@@ -38,6 +39,10 @@ class PolicyManager:
         self.config = config
         self.prometheus_client = prometheus_client
         self.logger = LoggingManager.get_logger(__name__)
+        
+        # Initialize O1 interface client
+        self.o1_client = None
+        self._initialize_o1_client()
         
         # Validate and extract configuration
         self._validate_configuration()
@@ -82,6 +87,21 @@ class PolicyManager:
         
         self.logger.debug(f"Policy configuration: RIC={self.default_ric_id}, "
                          f"Service={self.default_service_id}, Type={self.default_policy_type_id}")
+    
+    def _initialize_o1_client(self) -> None:
+        """Initialize O1 interface client for E2 simulator communication."""
+        try:
+            o1_config = self.config.get('o1_interface', {})
+            o1_base_url = o1_config.get('base_url', 'http://e2sim-addr:8090')
+            o1_timeout = o1_config.get('timeout', 30)
+            
+            self.o1_client = O1InterfaceClient(o1_base_url, o1_timeout)
+            self.logger.info(f"O1 interface client initialized with URL: {o1_base_url}")
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize O1 interface client: {e}")
+            self.logger.warning("O1 interface features will be disabled")
+            self.o1_client = None
     
     @log_function_calls()
     def parse_optimization_to_policy(
@@ -687,3 +707,155 @@ class PolicyManager:
         except Exception as e:
             self.logger.error(f"Error retrieving active policies: {e}")
             return []
+    
+    @log_function_calls()
+    def deploy_optimization_with_o1(
+        self, 
+        optimization_result: Dict[str, Any], 
+        mcc_mnc_data: Optional[Dict[str, str]] = None
+    ) -> bool:
+        """
+        Deploy optimization result using both A1 policy and O1 interface.
+        
+        This method implements a three-phase deployment:
+        1. Enable/increase power for active gNBs/PCIs
+        2. Deploy A1 policy for handover and admission control
+        3. Disable/reduce power for unused gNBs/PCIs
+        
+        Args:
+            optimization_result (Dict[str, Any]): Result from energy optimization
+            mcc_mnc_data (Dict[str, str], optional): MCC/MNC data for policy creation
+            
+        Returns:
+            bool: True if deployment successful, False otherwise
+        """
+        if not self.o1_client:
+            self.logger.warning("O1 interface not available, falling back to A1 policy only")
+            return self.deploy_policy_instance_from_optimization(optimization_result, mcc_mnc_data)
+        
+        try:
+            self.logger.info("Starting three-phase optimization deployment with O1 interface")
+            
+            # Extract GNB configuration
+            gnb_config = optimization_result.get('GNB_config', [])
+            if not gnb_config:
+                self.logger.warning("No GNB configuration in optimization result")
+                return False
+            
+            # Phase 1: Backup current configuration
+            self.logger.info("Phase 1: Backing up current antenna configuration")
+            backup_config = self.o1_client.backup_current_configuration()
+            if not backup_config:
+                self.logger.error("Failed to backup current configuration")
+                return False
+            
+            # Phase 2: Enable/increase power for active antennas
+            self.logger.info("Phase 2: Enabling/increasing power for active antennas")
+            enable_success = self.o1_client.apply_gnb_configuration(gnb_config, enable_only=True)
+            if not enable_success:
+                self.logger.error("Failed to enable active antennas")
+                # Attempt to restore backup
+                self.o1_client.restore_configuration(backup_config)
+                return False
+            
+            # Phase 3: Deploy A1 policy
+            self.logger.info("Phase 3: Deploying A1 policy instance")
+            policy_success = self.deploy_policy_instance_from_optimization(optimization_result, mcc_mnc_data)
+            if not policy_success:
+                self.logger.error("Failed to deploy A1 policy")
+                # Attempt to restore backup
+                self.o1_client.restore_configuration(backup_config)
+                return False
+            
+            # Phase 4: Disable/reduce power for unused antennas
+            self.logger.info("Phase 4: Disabling/reducing power for unused antennas")
+            disable_success = self.o1_client.apply_gnb_configuration(gnb_config, enable_only=False)
+            if not disable_success:
+                self.logger.warning("Some antennas failed to be disabled - this may affect energy savings")
+            
+            self.logger.info("Three-phase optimization deployment completed successfully")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error in O1-based deployment: {e}")
+            # Attempt to restore backup if available
+            if 'backup_config' in locals() and backup_config:
+                self.logger.info("Attempting to restore backup configuration due to deployment failure")
+                self.o1_client.restore_configuration(backup_config)
+            return False
+    
+    @log_function_calls()
+    def deploy_policy_instance_from_optimization(
+        self, 
+        optimization_result: Dict[str, Any], 
+        mcc_mnc_data: Optional[Dict[str, str]] = None
+    ) -> bool:
+        """
+        Create and deploy A1 policy instance from optimization result.
+        
+        Args:
+            optimization_result (Dict[str, Any]): Result from energy optimization
+            mcc_mnc_data (Dict[str, str], optional): MCC/MNC data for policy creation
+            
+        Returns:
+            bool: True if deployment successful, False otherwise
+        """
+        try:
+            # Create policy instance
+            policy_instance = self.parse_optimization_to_policy(optimization_result, mcc_mnc_data)
+            if not policy_instance:
+                self.logger.error("Failed to create policy instance from optimization result")
+                return False
+            
+            # Deploy the policy
+            return self.deploy_policy_instance(policy_instance)
+            
+        except Exception as e:
+            self.logger.error(f"Error deploying policy from optimization result: {e}")
+            return False
+    
+    @log_function_calls()
+    def apply_gnb_power_configuration(self, gnb_config: List[Dict[str, Any]]) -> bool:
+        """
+        Apply gNB power configuration via O1 interface.
+        
+        Args:
+            gnb_config (List[Dict]): GNB_config from optimization result
+            
+        Returns:
+            bool: True if configuration applied successfully
+        """
+        if not self.o1_client:
+            self.logger.error("O1 interface client not available")
+            return False
+        
+        return self.o1_client.apply_gnb_configuration(gnb_config)
+    
+    @log_function_calls()
+    def shutdown_all_antennas(self) -> bool:
+        """
+        Emergency shutdown of all antennas via O1 interface.
+        
+        Returns:
+            bool: True if all antennas disabled successfully
+        """
+        if not self.o1_client:
+            self.logger.error("O1 interface client not available")
+            return False
+        
+        self.logger.warning("Initiating emergency shutdown of all antennas")
+        return self.o1_client.disable_all_antennas()
+    
+    @log_function_calls()
+    def get_current_antenna_status(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get current antenna status from E2 simulator.
+        
+        Returns:
+            List[Dict]: Current antenna gains or None if unavailable
+        """
+        if not self.o1_client:
+            self.logger.error("O1 interface client not available")
+            return None
+        
+        return self.o1_client.get_current_antenna_gains()

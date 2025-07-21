@@ -42,3 +42,8 @@ policy:
 
 nearrtric:
   prometheus_url: 'http://r4-infrastructure-prometheus-server.ricplt.svc.cluster.local'
+
+# O1 Interface configuration for E2 simulator
+o1_interface:
+  base_url: 'http://e2sim-e2sim-helm-o1.ricplt.svc.cluster.local:8090'
+  timeout: 30

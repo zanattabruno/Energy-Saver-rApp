@@ -292,7 +292,7 @@ class EnergySaverApplication:
     @log_function_calls()
     def deploy_policy(self, optimization_result: Dict[str, Any], mcc_mnc_data: Optional[Dict[str, str]]) -> bool:
         """
-        Deploy the optimization result as a policy instance.
+        Deploy the optimization result as a policy instance with O1 interface support.
         
         Args:
             optimization_result (Dict): Result from energy optimization
@@ -306,26 +306,29 @@ class EnergySaverApplication:
             return False
         
         try:
-            self.logger.info("Creating policy instance from optimization result")
-            policy_instance = self.policy_manager.parse_optimization_to_policy(
+            self.logger.info("Deploying optimization result with O1 interface integration")
+            
+            # Use the new O1-enabled deployment method
+            deployment_success = self.policy_manager.deploy_optimization_with_o1(
                 optimization_result, 
                 mcc_mnc_data
             )
             
-            if policy_instance is None:
-                self.logger.error("Failed to create policy instance - MCC/MNC information not available")
-                return False
-            
-            self.logger.debug(f"Generated policy instance: {json.dumps(policy_instance, indent=2)}")
-            
-            # Deploy the policy
-            deployment_success = self.policy_manager.deploy_policy_instance(policy_instance)
-            
             if deployment_success:
-                policy_id = policy_instance.get('policy_id')
-                self.logger.info(f"Policy successfully deployed with ID: {policy_id}")
+                gnb_config = optimization_result.get('GNB_config', [])
+                users_admission = optimization_result.get('Users admission', [])
+                
+                self.logger.info(f"Optimization deployment completed successfully:")
+                self.logger.info(f"  - Users admitted: {len(users_admission)}")
+                self.logger.info(f"  - gNBs configured: {len(gnb_config)}")
+                
+                # Log antenna status after deployment
+                antenna_status = self.policy_manager.get_current_antenna_status()
+                if antenna_status:
+                    active_antennas = [ant for ant in antenna_status if ant.get('gain', 0) > 0]
+                    self.logger.info(f"  - Active antennas: {len(active_antennas)}/{len(antenna_status)}")
             else:
-                self.logger.error("Policy deployment failed")
+                self.logger.error("Optimization deployment failed")
             
             return deployment_success
             
