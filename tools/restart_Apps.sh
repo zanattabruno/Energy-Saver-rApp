@@ -5,7 +5,7 @@ kubectl scale deployment ricxapp-bouncer-xapp --replicas=0 -n ricxapp &&
 kubectl scale deployment ricxapp-debugger-xapp --replicas=0 -n ricxapp
 
 echo "Waiting for all pods to terminate..."
-sleep 30
+sleep 10
 
 echo "Scaling Apps back to 1..." &&
 kubectl scale deployment e2sim-e2sim-helm --replicas=1 -n ricplt &&
