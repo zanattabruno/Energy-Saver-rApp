@@ -10,8 +10,10 @@ kubectl scale deployment deployment-ricplt-o1mediator --replicas=0 -n ricplt &
 kubectl scale deployment deployment-ricplt-rtmgr --replicas=0 -n ricplt &
 kubectl scale deployment deployment-ricplt-submgr --replicas=0 -n ricplt &
 kubectl scale deployment deployment-ricplt-vespamgr --replicas=0 -n ricplt & 
+kubectl scale deployment r4-infrastructure-kong --replicas=0 -n ricplt &
 kubectl scale deployment r4-infrastructure-prometheus-server --replicas=0 -n ricplt &
 kubectl scale deployment r4-infrastructure-prometheus-alertmanager --replicas=0 -n ricplt
+
 
 echo "Scaling Non-RT RIC to 0..." &&
 kubectl scale deployment a1controller --replicas=0 -n nonrtric &
@@ -42,7 +44,7 @@ kubectl scale statefulset kafka --replicas=0 -n smo &
 kubectl scale statefulset kafka-zookeeper --replicas=0 -n smo
 
 echo "Waiting for all pods to terminate..."
-sleep 30
+sleep 60
 
 echo "Scaling Near-RT RIC back to 1..." &&
 kubectl scale deployment deployment-ricplt-e2term-r4-e2term-alpha --replicas=1 -n ricplt &
@@ -55,6 +57,7 @@ kubectl scale deployment deployment-ricplt-o1mediator --replicas=1 -n ricplt &
 kubectl scale deployment deployment-ricplt-rtmgr --replicas=1 -n ricplt &
 kubectl scale deployment deployment-ricplt-submgr --replicas=1 -n ricplt &
 kubectl scale deployment deployment-ricplt-vespamgr --replicas=1 -n ricplt & 
+kubectl scale deployment r4-infrastructure-kong --replicas=1 -n ricplt &
 kubectl scale deployment r4-infrastructure-prometheus-server --replicas=1 -n ricplt &
 kubectl scale deployment r4-infrastructure-prometheus-alertmanager --replicas=1 -n ricplt
 
@@ -86,5 +89,6 @@ kubectl scale statefulset influxdb --replicas=1 -n smo &
 kubectl scale statefulset kafka --replicas=1 -n smo &
 kubectl scale statefulset kafka-zookeeper --replicas=1 -n smo
 
+kubectl wait --for=condition=available deployment/deployment-ricplt-e2term-r4-e2term-alpha -n ricplt &&
 echo "All services have been scaled down and back up. RIC restart complete."
 
