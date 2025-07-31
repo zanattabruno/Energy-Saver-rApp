@@ -1,15 +1,33 @@
 FROM zanattabruno/cplex-python38:latest
 
+# Update system packages
 RUN apt update && apt upgrade -y && apt autoremove -y
 
+# Set working directory
 WORKDIR /app
 
-COPY src/rApp_catalogue_client.py src/rApp_Energy_Saver.py src/Solution_Tools.py src/Solution_Tools.py src/UE_Consumer.py src/UE_Generator.py /app/
-
-COPY src/optimal_model/. /app/optimal_model/
-
+# Copy requirements first for better Docker layer caching
 COPY requirements.txt .
 
-RUN /usr/local/bin/python3.8 -m pip install --upgrade pip && /usr/local/bin/python3.8 -m pip install -r requirements.txt
+# Install Python dependencies
+RUN /usr/local/bin/python3.8 -m pip install --upgrade pip && \
+    /usr/local/bin/python3.8 -m pip install -r requirements.txt
 
-ENTRYPOINT ["sleep","999999999"]
+# Copy the entire src directory with proper structure
+COPY src/ ./src/
+
+# Copy any additional configuration or policy files if needed
+COPY policies/ ./policies/
+
+# Set Python path to include the src directory
+ENV PYTHONPATH=/app/src:/app
+
+# Create a non-root user for security
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Set the entrypoint to bash for interactive use
+ENTRYPOINT ["/bin/bash"]
+
+# Default command (can be overridden)
+CMD []

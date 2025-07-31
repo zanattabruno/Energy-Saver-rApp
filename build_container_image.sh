@@ -7,6 +7,17 @@ then
     exit
 fi
 
+# Check if virtual environment exists
+if [ ! -d ".venv" ]; then
+    echo "Virtual environment (.venv) not found. Please create and activate the virtual environment first."
+    exit 1
+fi
+
+# Generate requirements.txt from virtual environment
+echo "Generating requirements.txt from virtual environment..."
+.venv/bin/pip freeze | sed 's/==\([0-9]\+\)\.\([0-9]\+\)\.\([0-9]\+\)/==\1.*/' > requirements.txt
+echo "Requirements generated successfully."
+
 # Define the Docker image name and tag
 IMAGE_NAME="rapp_energy-saver"
 TAG="v1"
