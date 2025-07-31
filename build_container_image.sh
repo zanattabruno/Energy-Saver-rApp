@@ -20,7 +20,7 @@ echo "Requirements generated successfully."
 
 # Define the Docker image name and tag
 IMAGE_NAME="rapp_energy-saver"
-TAG="v1"
+TAG="TNSM-25"
 
 # Define the Docker Hub username
 DOCKER_HUB_USERNAME="zanattabruno"
