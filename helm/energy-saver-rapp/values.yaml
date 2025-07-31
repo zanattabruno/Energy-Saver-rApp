@@ -3,23 +3,13 @@
 # Declare variables to be passed into your templates.
 
 image:
-  repository: zanattabruno/rapp_energy-saver
-  pullPolicy: Always
+  repository: registry-docker-registry.registry.svc.cluster.local:5000/rapp_energy-saver
+  pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "latest"
+  tag: "TNSM-25"
 
 
 resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
 
 
 nodeSelector: {}
@@ -34,33 +24,21 @@ app:
   logging:
     level: INFO  # The logging level for the application.
 
+  # Energy configuration
   E2NodeList:
-    - mcc: 310  # The Mobile Country Code for the E2Node.
-      mnc: 260  # The Mobile Network Code for the E2Node.
-      nodebid: 10001  # The Node B ID for the E2Node.
-      radioPower: 18.5  # The radio power for the E2Node in dBm.
-    - mcc: 311  # The Mobile Country Code for the E2Node.
-      mnc: 480  # The Mobile Network Code for the E2Node.
-      nodebid: 10002  # The Node B ID for the E2Node.
-      radioPower: 22.0  # The radio power for the E2Node in dBm.
+    - mcc: 724  # The Mobile Country Code for the E2Node.
+      mnc: 11  # The Mobile Network Code for the E2Node.
+      nodebid: 1  # The Node B ID for the E2Node.
 
-  O1:
-    E2Nodes:
-      - '72401100000001': 'http://e2node1-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'  # The URL for E2Node 1.
-      - '72401100000002': 'http://e2node2-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'  # The URL for E2Node 2.
-      - '72401100000003': 'http://e2node3-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'  # The URL for E2Node 3.
-      - '72401100000004': 'http://e2node4-e2sim-helm-o1.ricplt:8090/restconf/operations/tx-gain'  # The URL for E2Node 4.
-    radioPower_off_gain: -1  # The radio power off gain.
+  # Configuration settings for the energy-saver-rapp application scheduling
+  scheduler:
+    # Fixed time interval scheduling (in minutes)
+    # Set to 0 to disable periodic scheduling and run only once
+    interval_minutes: 0
+    # Whether to run the application immediately on startup
+    run_on_startup: true
 
-  trigger:
-    interval:
-      enable: False  # Enable or disable the trigger interval.
-      seconds: 10  # The interval in seconds.
-    user_variation:
-      enable: True  # Enable or disable user variation.
-      percentage: 0.2  # The percentage of variation.
-      min_time_since_last_run_seconds: 60  # The minimum time since the last run in seconds.
-
+  # Non-RT RIC configuration
   nonrtric:
     base_url_rApp_catalogue: 'http://rappcatalogueservice.nonrtric.svc.cluster.local:9085/services'  # The base URL for the rApp catalogue service.
     base_url_pms: 'http://nonrtricgateway.nonrtric.svc.cluster.local:9090/a1-policy/v2'  # The base URL for the PMS service.
@@ -71,14 +49,17 @@ app:
     ric_id: 'ric4'  # The RIC ID.
     policytype_id: '5'  # The policy type ID.
 
-  kafka:
-    bootstrap_servers: "kafka.smo.svc.cluster.local"  # The bootstrap servers for Kafka.
-    port: 9092  # The port for Kafka.
-    enable_auto_commit: True  # Enable or disable auto commit.
-    auto_commit_interval_ms: 6000  # The auto commit interval in milliseconds.
-    auto_offset_reset: "latest"  # The auto offset reset configuration.
-    group_id: "rAppEnergySaver"  # The group ID for Kafka consumer.
-    client_id: "rAppEnergySaver"  # The client ID for Kafka consumer.
-    poll_timeout_seconds: 1  # The poll timeout in seconds.
-    topics:  # The topics for Kafka.
-    - ues
+  # Policy configuration defaults
+  policy:
+    ric_id: 'ric4'
+    service_id: 'EnergySaverApp'
+    policy_type_id: '5'
+
+  # Near-RT RIC configuration (Prometheus)
+  nearrtric:
+    prometheus_url: 'http://r4-infrastructure-prometheus-server.ricplt.svc.cluster.local'
+
+  # O1 Interface configuration for E2 simulator
+  o1_interface:
+    base_url: 'http://e2sim-e2sim-helm-o1.ricplt.svc.cluster.local:8090'
+    timeout: 30
