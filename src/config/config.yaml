@@ -8,20 +8,13 @@ E2NodeList:
     mnc: 11
     nodebid: 1
 
-# Configuration settings for the energy-saver-rapp application trigger
-# Just one can be enabled at the same time
-trigger:
-  # The interval in seconds at which the trigger should occur. Set to 0 to disable the trigger.
-  interval:
-    enable: False
-    seconds: 10
-  # User variation configuration
-  user_variation:
-    enable: True
-    # The percentage of the user variation. Should be between 0 and 1.
-    percentage: 0.2
-    # Minimum time since the last run in seconds
-    min_time_since_last_run_seconds: 90
+# Configuration settings for the energy-saver-rapp application scheduling
+scheduler:
+  # Fixed time interval scheduling (in minutes)
+  # Set to 0 to disable periodic scheduling and run only once
+  interval_minutes: 0
+  # Whether to run the application immediately on startup
+  run_on_startup: True
 
 # Non-RT RIC configuration
 nonrtric:

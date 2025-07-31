@@ -2,13 +2,14 @@
 Energy Saver rApp Main Application.
 
 This module implements the main application logic for the Energy Saver rApp,
-including metrics collection, optimization, and policy deployment.
+including metrics collection, optimization, policy deployment, and scheduled execution.
 """
 
 import logging
 import argparse
 import json
 import sys
+import signal
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional
 from time import sleep
@@ -16,6 +17,7 @@ from time import sleep
 # Local imports
 from utils.config_manager import ConfigManager
 from utils.logging_manager import LoggingManager, log_function_calls
+from utils.scheduler import FixedIntervalScheduler
 from utils.exceptions import (
     ConfigurationError,
     MetricsCollectionError,
@@ -41,6 +43,7 @@ class EnergySaverApplication:
     - Metrics collection from Prometheus
     - Energy optimization
     - Policy deployment
+    - Scheduled execution at fixed intervals
     """
     
     def __init__(self, config_path: str):
@@ -60,9 +63,11 @@ class EnergySaverApplication:
         self.prometheus_client: Optional[PrometheusClient] = None
         self.policy_manager: Optional[PolicyManager] = None
         self.rapp_client: Optional[rAppCatalalogueClient] = None
+        self.scheduler: Optional[FixedIntervalScheduler] = None
         
         self.logger.info(f"Initializing {APPLICATION_NAME} v{APPLICATION_VERSION}")
         self._initialize_components()
+        self._setup_signal_handlers()
     
     def _setup_logging(self) -> logging.Logger:
         """
@@ -111,6 +116,19 @@ class EnergySaverApplication:
         except Exception as e:
             self.logger.error(f"Failed to initialize components: {e}")
             raise ConfigurationError(f"Component initialization failed: {e}")
+    
+    def _setup_signal_handlers(self) -> None:
+        """
+        Set up signal handlers for graceful shutdown.
+        """
+        def signal_handler(signum, frame):
+            self.logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+            if self.scheduler and self.scheduler.is_running():
+                self.scheduler.stop()
+            sys.exit(0)
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
     
     @log_function_calls()
     def collect_metrics_and_mcc_mnc(self) -> Tuple[Dict[str, Any], int, Optional[Dict[str, str]]]:
@@ -339,9 +357,42 @@ class EnergySaverApplication:
             return False
     
     @log_function_calls()
+    def run_single_optimization(self) -> int:
+        """
+        Execute a single optimization cycle.
+        
+        Returns:
+            int: Exit code (0 for success, 1 for failure)
+        """
+        try:
+            self.logger.info("Starting single optimization cycle")
+            
+            # Step 1: Collect metrics and MCC/MNC data
+            metrics, imsi_count, mcc_mnc_data = self.collect_metrics_and_mcc_mnc()
+            
+            self.logger.info(f"Collected metrics for {imsi_count} IMSIs")
+            
+            # Step 2: Run energy optimization
+            optimization_result = self.run_energy_optimization(metrics)
+            
+            # Step 3: Deploy policy
+            deployment_success = self.deploy_policy(optimization_result, mcc_mnc_data)
+            
+            if deployment_success:
+                self.logger.info("Single optimization cycle completed successfully")
+                return 0
+            else:
+                self.logger.error("Single optimization cycle completed with policy deployment failure")
+                return 1
+                
+        except Exception as e:
+            self.logger.error(f"Single optimization cycle failed with exception: {e}")
+            return 1
+    
+    @log_function_calls()
     def run(self) -> int:
         """
-        Execute the main application workflow.
+        Execute the main application workflow with scheduling support.
         
         Returns:
             int: Exit code (0 for success, 1 for failure)
@@ -349,31 +400,54 @@ class EnergySaverApplication:
         try:
             self.logger.info(f"Starting {APPLICATION_NAME} main workflow")
             
-            # Step 1: Register with rApp catalogue
+            # Register with rApp catalogue first
             if not self.register_with_catalogue():
                 self.logger.error("Application startup failed at rApp registration")
                 return 1
             
-            # Step 2: Collect metrics and MCC/MNC data
-            metrics, imsi_count, mcc_mnc_data = self.collect_metrics_and_mcc_mnc()
+            # Get scheduler configuration
+            scheduler_config = self.config_manager.get_scheduler_config()
+            interval_minutes = scheduler_config['interval_minutes']
+            run_on_startup = scheduler_config['run_on_startup']
             
-            self.logger.info(f"Collected metrics for {imsi_count} IMSIs")
-            
-            # Step 3: Run energy optimization
-            optimization_result = self.run_energy_optimization(metrics)
-            
-            # Step 4: Deploy policy
-            deployment_success = self.deploy_policy(optimization_result, mcc_mnc_data)
-            
-            if deployment_success:
-                self.logger.info(f"{APPLICATION_NAME} completed successfully")
-                return 0
+            if interval_minutes <= 0:
+                # Single run mode
+                self.logger.info("Running in single execution mode")
+                return self.run_single_optimization()
             else:
-                self.logger.error(f"{APPLICATION_NAME} completed with policy deployment failure")
-                return 1
+                # Scheduled mode
+                self.logger.info(f"Running in scheduled mode with {interval_minutes}-minute intervals")
+                
+                # Initialize scheduler
+                self.scheduler = FixedIntervalScheduler(
+                    interval_minutes=interval_minutes,
+                    task_function=self.run_single_optimization
+                )
+                
+                # Start scheduler
+                self.scheduler.start(run_immediately=run_on_startup)
+                
+                if self.scheduler.is_running():
+                    self.logger.info("Scheduler started successfully, application will run continuously")
+                    
+                    try:
+                        # Keep the main thread alive while scheduler runs
+                        while self.scheduler.is_running():
+                            sleep(1)
+                    except KeyboardInterrupt:
+                        self.logger.info("Application interrupted by user")
+                    finally:
+                        self.scheduler.stop()
+                    
+                    return 0
+                else:
+                    self.logger.error("Failed to start scheduler")
+                    return 1
                 
         except Exception as e:
             self.logger.error(f"{APPLICATION_NAME} failed with exception: {e}")
+            if self.scheduler and self.scheduler.is_running():
+                self.scheduler.stop()
             return 1
 
 
@@ -385,7 +459,7 @@ def parse_arguments() -> argparse.Namespace:
         argparse.Namespace: Parsed command line arguments
     """
     parser = argparse.ArgumentParser(
-        description=f'{APPLICATION_NAME} - Optimize energy consumption of E2Nodes',
+        description=f'{APPLICATION_NAME} - Optimize energy consumption of E2Nodes with scheduled execution',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     

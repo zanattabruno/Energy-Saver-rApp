@@ -170,3 +170,15 @@ class ConfigManager:
             'service_display_name': self.get('nonrtric.service_display_name'),
             'service_description': self.get('nonrtric.service_description')
         }
+    
+    def get_scheduler_config(self) -> Dict[str, Any]:
+        """
+        Get scheduler configuration.
+        
+        Returns:
+            Dict[str, Any]: Scheduler configuration
+        """
+        return {
+            'interval_minutes': self.get('scheduler.interval_minutes', 15),
+            'run_on_startup': self.get('scheduler.run_on_startup', True)
+        }
