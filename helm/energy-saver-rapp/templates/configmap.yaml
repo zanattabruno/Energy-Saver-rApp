@@ -8,6 +8,13 @@ data:
     logging:
       level: {{ .Values.app.logging.level }}
     
+    # Optimization configuration
+    optimization:
+      # Method to use for energy optimization: 'optimal' or 'heuristic'
+      # - 'optimal': Uses the mathematical optimization model for best results (slower)
+      # - 'heuristic': Uses the heuristic algorithm for faster results (less optimal)
+      method: '{{ .Values.app.optimization.method }}'
+    
     # Energy
     E2NodeList:
     {{- toYaml .Values.app.E2NodeList | nindent 4 }}

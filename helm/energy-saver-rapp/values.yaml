@@ -24,6 +24,13 @@ app:
   logging:
     level: INFO  # The logging level for the application.
 
+  # Optimization configuration
+  optimization:
+    # Method to use for energy optimization: 'optimal' or 'heuristic'
+    # - 'optimal': Uses the mathematical optimization model for best results (slower)
+    # - 'heuristic': Uses the heuristic algorithm for faster results (less optimal)
+    method: 'heuristic'
+
   # Energy configuration
   E2NodeList:
     - mcc: 724  # The Mobile Country Code for the E2Node.
@@ -34,7 +41,7 @@ app:
   scheduler:
     # Fixed time interval scheduling (in minutes)
     # Set to 0 to disable periodic scheduling and run only once
-    interval_minutes: 0
+    interval_minutes: 5
     # Whether to run the application immediately on startup
     run_on_startup: true
 
