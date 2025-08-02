@@ -254,23 +254,48 @@ class EnergySaverApplication:
         try:
             import sys
             import os
-            # Add the energy-efficiency-optimizer path to sys.path temporarily
-            optimizer_path = os.path.join(os.path.dirname(__file__), 'energy-efficiency-optimizer', 'optimal_model')
-            if optimizer_path not in sys.path:
-                sys.path.insert(0, optimizer_path)
             
-            from run_optimization_wrapper import run_optimization
+            # Get optimization method from configuration
+            optimization_config = self.config_manager.get_optimization_config()
+            optimization_method = optimization_config.get('method', 'optimal').lower()
             
-            transformed_input = self.transform_metrics_for_optimization(metrics)
+            self.logger.info(f"Using {optimization_method} optimization method")
             
-            if not transformed_input["users"]:
-                self.logger.error("No users found in metrics for optimization")
-                return {"Users admission": [], "GNB_config": []}
+            if optimization_method == 'heuristic':
+                # Use heuristic optimization
+                heuristic_path = os.path.join(os.path.dirname(__file__), 'energy-efficiency-optimizer', 'heuristic_model')
+                if heuristic_path not in sys.path:
+                    sys.path.insert(0, heuristic_path)
+                
+                from run_heuristic_wrapper import run_heuristic_optimization
+                
+                transformed_input = self.transform_metrics_for_optimization(metrics)
+                
+                if not transformed_input["users"]:
+                    self.logger.error("No users found in metrics for heuristic optimization")
+                    return {"Users admission": [], "GNB_config": []}
+                
+                self.logger.info(f"Running heuristic optimization with {len(transformed_input['users'])} user entries")
+                optimization_result = run_heuristic_optimization(transformed_input)
+                
+            else:
+                # Use optimal optimization (default)
+                optimizer_path = os.path.join(os.path.dirname(__file__), 'energy-efficiency-optimizer', 'optimal_model')
+                if optimizer_path not in sys.path:
+                    sys.path.insert(0, optimizer_path)
+                
+                from run_optimization_wrapper import run_optimization
+                
+                transformed_input = self.transform_metrics_for_optimization(metrics)
+                
+                if not transformed_input["users"]:
+                    self.logger.error("No users found in metrics for optimal optimization")
+                    return {"Users admission": [], "GNB_config": []}
+                
+                self.logger.info(f"Running optimal optimization with {len(transformed_input['users'])} user entries")
+                optimization_result = run_optimization(transformed_input)
             
-            self.logger.info(f"Running optimization with {len(transformed_input['users'])} user entries")
-            
-            optimization_result = run_optimization(transformed_input)
-            self.logger.info("Energy optimization completed successfully")
+            self.logger.info(f"Energy optimization ({optimization_method}) completed successfully")
             
             # Log optimization results summary
             users_admission = optimization_result.get('Users admission', [])

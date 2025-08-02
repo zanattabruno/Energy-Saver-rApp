@@ -2,6 +2,13 @@
 logging:
   level: INFO # Logging level
 
+# Optimization configuration
+optimization:
+  # Method to use for energy optimization: 'optimal' or 'heuristic'
+  # - 'optimal': Uses the mathematical optimization model for best results (slower)
+  # - 'heuristic': Uses the heuristic algorithm for faster results (less optimal)
+  method: 'heuristic'
+
 # Energy
 E2NodeList:
   - mcc: 724

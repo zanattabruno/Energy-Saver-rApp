@@ -182,3 +182,14 @@ class ConfigManager:
             'interval_minutes': self.get('scheduler.interval_minutes', 15),
             'run_on_startup': self.get('scheduler.run_on_startup', True)
         }
+    
+    def get_optimization_config(self) -> Dict[str, Any]:
+        """
+        Get optimization configuration.
+        
+        Returns:
+            Dict[str, Any]: Optimization configuration
+        """
+        return {
+            'method': self.get('optimization.method', 'optimal')
+        }
