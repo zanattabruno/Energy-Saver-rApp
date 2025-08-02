@@ -252,7 +252,14 @@ class EnergySaverApplication:
             OptimizationError: If optimization fails
         """
         try:
-            from optimal_model.run_model import run_optimization
+            import sys
+            import os
+            # Add the energy-efficiency-optimizer path to sys.path temporarily
+            optimizer_path = os.path.join(os.path.dirname(__file__), 'energy-efficiency-optimizer', 'optimal_model')
+            if optimizer_path not in sys.path:
+                sys.path.insert(0, optimizer_path)
+            
+            from run_optimization_wrapper import run_optimization
             
             transformed_input = self.transform_metrics_for_optimization(metrics)
             

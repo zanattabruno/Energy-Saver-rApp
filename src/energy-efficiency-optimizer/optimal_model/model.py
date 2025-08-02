@@ -74,7 +74,7 @@ def define_model(UEs, E2Ns, total_BW):
     # Solver start time
     start_time = time.time()
     # solve the model with CPLEX CP Optimizer
-    msol = mdl.solve(execfile="/opt/ibm/ILOG/CPLEX_Studio2211/cpoptimizer/bin/x86-64_linux/cpoptimizer")
+    msol = mdl.solve(execfile="/opt/ibm/ILOG/CPLEX_Studio221/cpoptimizer/bin/x86-64_linux/cpoptimizer")
     # Solver end time
     total_time = time.time() - start_time
 
