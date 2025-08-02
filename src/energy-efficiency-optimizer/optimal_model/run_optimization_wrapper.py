@@ -139,24 +139,17 @@ def run_optimization(input_json: Dict[str, Any]) -> Dict[str, Any]:
         tmp = []
         GNB_config_dict = {}
         
-        # Initialize all GNBs
+        # Initialize all GNBs (status will be determined later based on active PCIs)
         for e2n in ID_to_nodebid_and_PCI:
             gnb_id = ID_to_nodebid_and_PCI[e2n][0]
             if gnb_id not in tmp:
                 tmp.append(gnb_id)
-                if e2n in E2N_info.keys():
-                    GNB_config_dict[gnb_id] = {
-                        "gnb": gnb_id,
-                        "status": "active",
-                        "all_pcis": []
-                    }
-                else:
-                    GNB_config_dict[gnb_id] = {
-                        "gnb": gnb_id,
-                        "status": "powered_off",
-                        "all_pcis": []
-                    }
-        
+                GNB_config_dict[gnb_id] = {
+                    "gnb": gnb_id,
+                    "status": "powered_off",  # Default status, will be updated based on active PCIs
+                    "all_pcis": []
+                }
+
         # Add PCI configurations
         for e2n in ID_to_nodebid_and_PCI:
             gnb_id = ID_to_nodebid_and_PCI[e2n][0]
@@ -178,7 +171,19 @@ def run_optimization(input_json: Dict[str, Any]) -> Dict[str, Any]:
                 }
             
             GNB_config_dict[gnb_id]["all_pcis"].append(pci_config)
-        
+
+        # Update gNB status based on active PCIs
+        for gnb_id in GNB_config_dict:
+            active_pcis = [pci for pci in GNB_config_dict[gnb_id]["all_pcis"] if pci["status"] == "active"]
+            total_pcis = len(GNB_config_dict[gnb_id]["all_pcis"])
+            
+            if len(active_pcis) == 0:
+                GNB_config_dict[gnb_id]["status"] = "powered_off"
+            elif len(active_pcis) == total_pcis:
+                GNB_config_dict[gnb_id]["status"] = "active"
+            else:
+                GNB_config_dict[gnb_id]["status"] = "partial"
+
         # Convert to list format
         for gnb in GNB_config_dict:
             json_solution["GNB_config"].append(GNB_config_dict[gnb])

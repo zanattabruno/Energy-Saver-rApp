@@ -151,7 +151,13 @@ class O1InterfaceClient:
                 gnb_status = gnb.get('status', 'unknown')
                 all_pcis = gnb.get('all_pcis', [])
                 
-                self.logger.info(f"Processing gNB {gnb_id} with status '{gnb_status}' and {len(all_pcis)} PCIs")
+                # Count active and inactive PCIs for better logging
+                active_pcis = [pci for pci in all_pcis if pci.get('status') == 'active']
+                inactive_pcis = [pci for pci in all_pcis if pci.get('status') != 'active']
+                
+                self.logger.info(f"Processing gNB {gnb_id} with status '{gnb_status}': "
+                               f"{len(active_pcis)} active, {len(inactive_pcis)} inactive PCIs "
+                               f"(total: {len(all_pcis)} PCIs)")
                 
                 for pci_config in all_pcis:
                     pci = pci_config.get('pci')
