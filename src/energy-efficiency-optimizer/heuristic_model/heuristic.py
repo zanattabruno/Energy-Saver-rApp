@@ -56,7 +56,7 @@ def activate_new_E2N(best_users_by_E2Ns, deactivated_E2Ns):
 
 def calculate_BW_requirement(user, e2n, UEs, E2Ns, E2Ns_TP):
     e2n_reference_power = 100 # Reference power of E2N in mW, that means 20 dBm
-    SINR_linear = 10 ** (user.channel_gain[e2n.ID]/10)  # Convert dBm to mW
+    SINR_linear = user.channel_gain[e2n.ID]  # Already in linear scale from wrapper
     user_noise_interference = e2n_reference_power/SINR_linear # the result is noise in mW
     if user_noise_interference == 0:
         BW_requirement = 100 * 10**6  # If the user has no noise interference, we assume a maximum bandwidth requirement
@@ -102,7 +102,7 @@ def try_to_decrease_power(e2n, E2Ns_TP, E2Ns_admitted_users, UEs):
     for user in E2Ns_admitted_users[e2n.ID]:
         user = find_user_object(UEs, user)
         e2n_reference_power = 100  # Reference power of E2N in mW, that means 20 dBm
-        SINR_linear = 10 ** (user.channel_gain[e2n.ID]/10)
+        SINR_linear = user.channel_gain[e2n.ID]  # Already in linear scale from wrapper
         user_noise_interference = e2n_reference_power/SINR_linear  
         if user_noise_interference <= 0:
             user_new_BW = 100 * 10**6
@@ -164,7 +164,7 @@ def define_heuristic(UEs, E2Ns, total_BW):
                     E2Ns_admitted_users[e2n.ID].append(user.ID)
                     users_BW_allocation[user.ID] = BW_requirement
                     e2n_reference_power = 100  # Reference power of E2N in mW, that means 20 dBm
-                    SINR_linear = 10 ** (user.channel_gain[e2n.ID]/10)
+                    SINR_linear = user.channel_gain[e2n.ID]  # Already in linear scale from wrapper
                     user_noise_interference = e2n_reference_power/SINR_linear  # the result is noise in mW
                     if user_noise_interference == 0:
                         users_throughput[user.ID] = 100 * 10**6
