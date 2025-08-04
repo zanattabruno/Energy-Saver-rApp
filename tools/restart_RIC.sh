@@ -89,6 +89,13 @@ kubectl scale statefulset influxdb --replicas=1 -n smo &
 kubectl scale statefulset kafka --replicas=1 -n smo &
 kubectl scale statefulset kafka-zookeeper --replicas=1 -n smo
 
-kubectl wait --for=condition=available deployment/deployment-ricplt-e2term-r4-e2term-alpha -n ricplt &&
-echo "All services have been scaled down and back up. RIC restart complete."
+echo "Waiting for Near-RT RIC e2term deployment to be ready..."
+kubectl wait --for=condition=available deployment/deployment-ricplt-e2term-r4-e2term-alpha -n ricplt --timeout=200s
+if [ $? -eq 0 ]; then
+    echo "All services have been scaled down and back up. RIC restart complete."
+else
+    echo "Warning: e2term deployment did not become ready within 5 minutes. Checking status..."
+    kubectl get deployment deployment-ricplt-e2term-r4-e2term-alpha -n ricplt
+    kubectl describe deployment deployment-ricplt-e2term-r4-e2term-alpha -n ricplt
+fi
 
