@@ -1,4 +1,11 @@
 #!/bin/bash
+
+echo "Scaling Apps to 0..." &&
+kubectl scale deployment energy-saver-rapp --replicas=0 -n ricrapp &&
+kubectl scale deployment e2sim-e2sim-helm --replicas=0 -n ricplt &
+kubectl scale deployment ricxapp-bouncer-xapp --replicas=0 -n ricxapp &
+kubectl scale deployment ricxapp-debugger-xapp --replicas=0 -n ricxapp
+
 echo "Scaling Near-RT RIC to 0..." &&
 kubectl scale deployment deployment-ricplt-e2term-r4-e2term-alpha --replicas=0 -n ricplt &
 kubectl scale statefulset statefulset-ricplt-dbaas-server --replicas=0 -n ricplt &
@@ -89,7 +96,7 @@ kubectl scale statefulset influxdb --replicas=1 -n smo &
 kubectl scale statefulset kafka --replicas=1 -n smo &
 kubectl scale statefulset kafka-zookeeper --replicas=1 -n smo
 
-echo "Waiting for Near-RT RIC e2term deployment to be ready..."
+echo "Waiting for Near-RT RIC e2term deployment to be ready..." 
 kubectl wait --for=condition=available deployment/deployment-ricplt-e2term-r4-e2term-alpha -n ricplt --timeout=200s
 if [ $? -eq 0 ]; then
     echo "All services have been scaled down and back up. RIC restart complete."
@@ -99,3 +106,19 @@ else
     kubectl describe deployment deployment-ricplt-e2term-r4-e2term-alpha -n ricplt
 fi
 
+
+
+echo "Scaling Apps back to 1..." &&
+kubectl scale deployment e2sim-e2sim-helm --replicas=1 -n ricplt &&
+kubectl scale deployment ricxapp-bouncer-xapp --replicas=1 -n ricxapp &&
+kubectl scale deployment ricxapp-debugger-xapp --replicas=1 -n ricxapp &&
+kubectl scale deployment energy-saver-rapp --replicas=1 -n ricrapp &&
+
+
+echo "All apps have been scaled down and back up. Apps restart complete." 
+
+echo "Creating policy types..."
+cd /home/vmadmin/energy-saver-rapp/policies/
+bash create_policy_type.bash
+
+echo "RIC restart and policy type creation complete."
