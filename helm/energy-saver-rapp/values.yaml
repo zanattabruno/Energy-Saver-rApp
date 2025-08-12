@@ -4,7 +4,7 @@
 
 image:
   repository: registry-docker-registry.registry.svc.cluster.local:5000/rapp_energy-saver
-  pullPolicy: IfNotPresent
+  pullPolicy: Always  # The image pull policy. Always pulls the image on every deployment.
   # Overrides the image tag whose default is the chart appVersion.
   tag: "TNSM-25"
 

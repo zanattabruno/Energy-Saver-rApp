@@ -170,6 +170,8 @@ class EnergySaverApplication:
         """
         Transform Prometheus SINR metrics for optimization model.
         
+        This method now includes ALL antennas from the E2 simulator, not just those with measurements.
+        
         Args:
             metrics (Dict): Raw SINR metrics from Prometheus
             
@@ -180,14 +182,33 @@ class EnergySaverApplication:
             self.logger.warning("No metrics provided for transformation")
             return {"users": []}
         
-        # Collect all unique gNBs and their PCIs
+        # Get all available antennas from E2 simulator
+        all_antennas = []
+        if self.policy_manager and self.policy_manager.o1_client:
+            antenna_status = self.policy_manager.o1_client.get_current_antenna_gains()
+            if antenna_status:
+                all_antennas = [ant.get('pci') for ant in antenna_status if ant.get('pci') is not None]
+                self.logger.info(f"Found {len(all_antennas)} antennas in E2 simulator: PCIs {sorted(all_antennas)}")
+            else:
+                self.logger.warning("Could not retrieve antenna status from E2 simulator")
+        
+        # Collect gNBs and PCIs from metrics
         gnb_pci_map = {}
         for imsi, gnb_data in metrics.items():
             for gnbid, pci_data in gnb_data.items():
                 if gnbid not in gnb_pci_map:
                     gnb_pci_map[gnbid] = set()
                 for pci in pci_data.keys():
-                    gnb_pci_map[gnbid].add(pci)
+                    gnb_pci_map[gnbid].add(int(pci))
+        
+        # If we have E2 simulator antennas, extend the gNB PCI map to include all of them
+        if all_antennas and gnb_pci_map:
+            # Assume all antennas belong to the same gNB as in metrics (this could be enhanced)
+            first_gnb = list(gnb_pci_map.keys())[0]
+            for pci in all_antennas:
+                gnb_pci_map[first_gnb].add(int(pci))
+            
+            self.logger.info(f"Extended gNB {first_gnb} to include all {len(all_antennas)} E2 simulator antennas")
         
         self.logger.info(f"Found gNBs and their PCIs: {gnb_pci_map}")
         
@@ -204,7 +225,15 @@ class EnergySaverApplication:
         self.logger.info(f"  - Unique gNBs: {len(gnb_pci_map)}")
         
         total_pcis = sum(len(pcis) for pcis in gnb_pci_map.values())
+        unique_measured_pcis = set()
+        for gnb_data in metrics.values():
+            for pci_data in gnb_data.values():
+                for pci in pci_data.keys():
+                    unique_measured_pcis.add(int(pci))
+        
         self.logger.info(f"  - Total PCIs across all gNBs: {total_pcis}")
+        self.logger.info(f"  - Unique PCIs with measurements: {len(unique_measured_pcis)}")
+        self.logger.info(f"  - PCIs without measurements: {total_pcis - len(unique_measured_pcis)}")
         
         transformed_users = []
         
@@ -213,20 +242,25 @@ class EnergySaverApplication:
             for gnbid, pci_data in gnb_data.items():
                 available_pcis = gnb_pci_map.get(gnbid, set())
                 
+                # Calculate average SINR for this IMSI-gNB combination (for estimation)
+                measured_sinr_values = list(pci_data.values())
+                avg_sinr = sum(measured_sinr_values) / len(measured_sinr_values) if measured_sinr_values else 50
+                
                 for pci in available_pcis:
-                    if pci in pci_data:
-                        sinr_value = pci_data[pci]
+                    if str(pci) in pci_data:
+                        # Use actual measurement
+                        sinr_value = pci_data[str(pci)]
                     else:
-                        # Estimate SINR with penalty for unmeasured PCIs
-                        best_sinr = max(pci_data.values()) if pci_data else 50
+                        # Estimate SINR for unmeasured PCIs with some variation
                         import random
-                        penalty_factor = 0.6 + random.uniform(0, 0.2)
-                        sinr_value = best_sinr * penalty_factor
+                        # Use a penalty factor between 0.5 and 0.8 for unmeasured PCIs
+                        penalty_factor = 0.5 + random.uniform(0, 0.3)
+                        sinr_value = avg_sinr * penalty_factor
                     
                     user_entry = {
                         "IMSI": imsi,
                         "nodebid": gnbid,
-                        "pci": pci,
+                        "pci": str(pci),
                         "sinr": sinr_value,
                         "rrc_state": 1,
                         "rsrp": -60,
@@ -234,7 +268,27 @@ class EnergySaverApplication:
                     }
                     transformed_users.append(user_entry)
         
-        self.logger.info(f"Transformed {len(transformed_users)} user entries for optimization")
+        # Log detailed transformation results
+        measured_entries = 0
+        estimated_entries = 0
+        
+        for entry in transformed_users:
+            entry_pci = str(entry['pci'])
+            entry_gnb = entry['nodebid']
+            entry_imsi = entry['IMSI']
+            
+            # Check if this specific IMSI-gNB-PCI combination had actual measurements
+            if (entry_imsi in metrics and 
+                entry_gnb in metrics[entry_imsi] and 
+                entry_pci in metrics[entry_imsi][entry_gnb]):
+                measured_entries += 1
+            else:
+                estimated_entries += 1
+        
+        self.logger.info(f"Transformed {len(transformed_users)} user entries for optimization:")
+        self.logger.info(f"  - Entries with actual measurements: {measured_entries}")
+        self.logger.info(f"  - Entries with estimated SINR: {estimated_entries}")
+        
         return {"users": transformed_users}
     
     @log_function_calls()

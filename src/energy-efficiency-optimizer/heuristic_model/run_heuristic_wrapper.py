@@ -36,59 +36,74 @@ class HeuristicOptimizationHelpers(OptimizationHelpers):
     """Helper functions specific to heuristic optimization."""
     
     @staticmethod
-    def build_heuristic_channel_gains(user_imsi: str, input_json: Dict[str, Any], 
+    def precompute_imsi_measurements(input_json: Dict[str, Any]) -> Dict[str, Dict[tuple, float]]:
+        """Precompute mapping IMSI -> {(nodebid, pci): sinr} for O(1) lookups.
+
+        This avoids rescanning the entire input list for each IMSI and reduces
+        complexity from O(N_unique_imsi * N_total) to O(N_total).
+        """
+        imsi_to_measurements: Dict[str, Dict[tuple, float]] = {}
+        for u in input_json.get("users", []):
+            imsi = u.get("IMSI")
+            nodebid = u.get("nodebid")
+            pci = u.get("pci")
+            sinr = u.get("sinr")
+            if imsi is None or nodebid is None or pci is None or sinr is None:
+                continue
+            key = (nodebid, pci)
+            if imsi not in imsi_to_measurements:
+                imsi_to_measurements[imsi] = {}
+            # If duplicates exist, last one wins (or consider max/avg if needed)
+            imsi_to_measurements[imsi][key] = sinr
+        return imsi_to_measurements
+
+    @staticmethod
+    def build_heuristic_channel_gains(user_imsi: str, imsi_to_measurements: Dict[str, Dict[tuple, float]], 
                                      ID_to_nodebid_and_PCI: Dict[int, Tuple[str, int]]) -> Dict[int, float]:
-        """Build channel gain mapping for heuristic model (with linear conversion)."""
-        channel_gains = {}
-        
-        # Find user measurements
-        user_measurements = {}
-        for u in input_json["users"]:
-            if u["IMSI"] == user_imsi:
-                key = (u["nodebid"], u["pci"])
-                user_measurements[key] = u["sinr"]
-        
+        """Build channel gain mapping for heuristic model using precomputed measurements.
+
+        Converts SINR (dB) to linear channel gains; applies a penalty for missing measurements.
+        """
+        channel_gains: Dict[int, float] = {}
+        user_measurements = imsi_to_measurements.get(user_imsi, {})
+
+        # Choose a baseline measurement for penalty; fallback to DEFAULT_POOR_SIGNAL
+        baseline_sinr = next(iter(user_measurements.values()), OptimizationConfig.DEFAULT_POOR_SIGNAL)
+        penalty_sinr = baseline_sinr - 10
+
         for e2n_id, (nodebid, pci) in ID_to_nodebid_and_PCI.items():
-            if (nodebid, pci) in user_measurements:
-                # Convert SINR to linear channel gain
-                sinr_db = user_measurements[(nodebid, pci)]
-                channel_gains[e2n_id] = 10 ** (sinr_db / 10)
-            else:
-                # Apply penalty for other E2 nodes
-                penalty_sinr = user_measurements.get(
-                    list(user_measurements.keys())[0], 
-                    OptimizationConfig.DEFAULT_POOR_SIGNAL
-                ) - 10
-                channel_gains[e2n_id] = 10 ** (penalty_sinr / 10)
-        
+            sinr_db = user_measurements.get((nodebid, pci), penalty_sinr)
+            channel_gains[e2n_id] = 10 ** (sinr_db / 10)
         return channel_gains
     
     @staticmethod
     def create_heuristic_users_dict(input_json: Dict[str, Any], 
                                    ID_to_nodebid_and_PCI: Dict[int, Tuple[str, int]]) -> Tuple[Dict[str, Any], Dict[str, int]]:
-        """Create users dictionary for heuristic optimization."""
+        """Create users dictionary for heuristic optimization (unique IMSIs only).
+
+        Optimized to pre-index measurements and avoid repeated scans.
+        """
         UEs = {"users": []}
-        ID_to_IMSI = {}
-        seen_imsi = set()
+        ID_to_IMSI: Dict[str, int] = {}
         user_id = 0
-        
-        for user in input_json["users"]:
-            if user["IMSI"] not in seen_imsi:
-                seen_imsi.add(user["IMSI"])
-                ID_to_IMSI[user["IMSI"]] = user_id
-                
-                channel_gains = HeuristicOptimizationHelpers.build_heuristic_channel_gains(
-                    user["IMSI"], input_json, ID_to_nodebid_and_PCI
-                )
-                demand = random.choice(OptimizationConfig.DEMANDS_PROFILE)
-                
-                UEs["users"].append({
-                    "ID": user_id,
-                    "demand": demand,
-                    "channel_gain": channel_gains
-                })
-                user_id += 1
-        
+
+        # Precompute IMSI -> measurements map once
+        imsi_to_measurements = HeuristicOptimizationHelpers.precompute_imsi_measurements(input_json)
+
+        for imsi, measurements in imsi_to_measurements.items():
+            ID_to_IMSI[imsi] = user_id
+            channel_gains = HeuristicOptimizationHelpers.build_heuristic_channel_gains(
+                imsi, imsi_to_measurements, ID_to_nodebid_and_PCI
+            )
+            demand = random.choice(OptimizationConfig.DEMANDS_PROFILE)
+
+            UEs["users"].append({
+                "ID": user_id,
+                "demand": demand,
+                "channel_gain": channel_gains
+            })
+            user_id += 1
+
         return UEs, ID_to_IMSI
 
 
