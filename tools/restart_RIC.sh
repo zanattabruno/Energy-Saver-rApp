@@ -125,7 +125,9 @@ echo "All apps have been scaled down and back up. Apps restart complete."
 echo "Creating policy types..."
 cd /home/vmadmin/energy-saver-rapp/policies/
 bash create_policy_type.bash
+echo "Policy types created."
 
-sleep 30
+echo "Waiting for all resources to be ready..."
+sleep 45
 
 echo "RIC restart and policy type creation complete."
