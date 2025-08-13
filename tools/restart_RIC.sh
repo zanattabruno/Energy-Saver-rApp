@@ -109,16 +109,23 @@ fi
 
 
 echo "Scaling Apps back to 1..." &&
-kubectl scale deployment e2sim-e2sim-helm --replicas=1 -n ricplt &&
-kubectl scale deployment ricxapp-bouncer-xapp --replicas=1 -n ricxapp &&
-kubectl scale deployment ricxapp-debugger-xapp --replicas=1 -n ricxapp &&
-kubectl scale deployment energy-saver-rapp --replicas=1 -n ricrapp &&
+kubectl scale deployment e2sim-e2sim-helm --replicas=1 -n ricplt &
+kubectl scale deployment ricxapp-bouncer-xapp --replicas=1 -n ricxapp &
+kubectl scale deployment ricxapp-debugger-xapp --replicas=1 -n ricxapp &
+kubectl scale deployment energy-saver-rapp --replicas=1 -n ricrapp
 
+echo "Waiting for all apps to be ready..."
+kubectl wait --for=condition=available deployment/e2sim-e2sim-helm -n ricplt --timeout=200s &&
+kubectl wait --for=condition=available deployment/ricxapp-bouncer-xapp -n ricxapp --timeout=200s &&
+kubectl wait --for=condition=available deployment/ricxapp-debugger-xapp -n ricxapp --timeout=200s &&
+kubectl wait --for=condition=available deployment/energy-saver-rapp -n ricrapp --timeout=200s
 
 echo "All apps have been scaled down and back up. Apps restart complete." 
 
 echo "Creating policy types..."
 cd /home/vmadmin/energy-saver-rapp/policies/
 bash create_policy_type.bash
+
+sleep 30
 
 echo "RIC restart and policy type creation complete."

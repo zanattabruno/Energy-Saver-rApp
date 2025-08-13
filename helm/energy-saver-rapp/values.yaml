@@ -41,7 +41,7 @@ app:
   scheduler:
     # Fixed time interval scheduling (in minutes)
     # Set to 0 to disable periodic scheduling and run only once
-    interval_minutes: 5
+    interval_minutes: 15
     # Whether to run the application immediately on startup
     run_on_startup: true
 
