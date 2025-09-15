@@ -9,6 +9,7 @@ and query API approaches.
 import json
 import logging
 import requests
+from time import perf_counter
 from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
 from urllib.parse import urljoin
@@ -195,17 +196,27 @@ class PrometheusClient:
             MetricsCollectionError: If both collection methods fail
         """
         self.logger.info("Starting optimized SINR metrics and MCC/MNC collection")
-        
+        collection_start = perf_counter()
+        used_method = None
+
         organized_metrics = defaultdict(lambda: defaultdict(dict))
         mcc_mnc_data = {}  # Use dict instead of None so it can be modified by reference
         
         # Method 1: Try direct metrics endpoint first (more efficient)
+        endpoint_start = perf_counter()
         success = self._collect_from_metrics_endpoint(organized_metrics, mcc_mnc_data)
+        endpoint_duration = perf_counter() - endpoint_start
+        if success:
+            used_method = f"direct_endpoint ({endpoint_duration:.3f}s)"
         
         # Method 2: Fall back to query API if direct endpoint failed
         if not success:
             self.logger.info("Direct endpoint collection failed, trying query API")
+            query_start = perf_counter()
             success = self._collect_from_query_api(organized_metrics, mcc_mnc_data)
+            query_duration = perf_counter() - query_start
+            if success:
+                used_method = f"query_api ({query_duration:.3f}s)"
         
         if not success:
             self.logger.error("SINR metrics 'e2sm_rc_report_style4_sinr' are not available in Prometheus")
@@ -221,6 +232,8 @@ class PrometheusClient:
         
         # Log collection summary
         self._log_collection_summary(result_dict, final_mcc_mnc_data)
+        total_duration = perf_counter() - collection_start
+        self.logger.info(f"Prometheus metrics collection time: {total_duration:.3f}s (method used: {used_method})")
         
         return result_dict, final_mcc_mnc_data
     

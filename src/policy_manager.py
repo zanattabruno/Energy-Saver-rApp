@@ -715,12 +715,11 @@ class PolicyManager:
         mcc_mnc_data: Optional[Dict[str, str]] = None
     ) -> bool:
         """
-        Deploy optimization result using both A1 policy and O1 interface.
-        
-        This method implements a three-phase deployment:
-        1. Enable/increase power for active gNBs/PCIs
-        2. Deploy A1 policy for handover and admission control
-        3. Disable/reduce power for unused gNBs/PCIs
+        Deploy optimization result using both O1 interface (power configuration) and A1 policy.
+
+        Updated flow (requested):
+        1. Apply FULL cell power configuration first (enable active cells, disable/power off inactive ones)
+        2. Deploy A1 policy (handover / UE admission logic)
         
         Args:
             optimization_result (Dict[str, Any]): Result from energy optimization
@@ -734,46 +733,38 @@ class PolicyManager:
             return self.deploy_policy_instance_from_optimization(optimization_result, mcc_mnc_data)
         
         try:
-            self.logger.info("Starting three-phase optimization deployment with O1 interface")
-            
-            # Extract GNB configuration
+            self.logger.info("Starting optimization deployment (power first, then policy)")
+
+            # Extract gNB configuration
             gnb_config = optimization_result.get('GNB_config', [])
             if not gnb_config:
                 self.logger.warning("No GNB configuration in optimization result")
                 return False
             
-            # Phase 1: Backup current configuration
-            self.logger.info("Phase 1: Backing up current antenna configuration")
+            # Step 1: Backup current configuration
+            self.logger.info("Step 1: Backing up current antenna configuration")
             backup_config = self.o1_client.backup_current_configuration()
             if not backup_config:
                 self.logger.error("Failed to backup current configuration")
                 return False
             
-            # Phase 2: Enable/increase power for active antennas
-            self.logger.info("Phase 2: Enabling/increasing power for active antennas")
-            enable_success = self.o1_client.apply_gnb_configuration(gnb_config, enable_only=True)
-            if not enable_success:
-                self.logger.error("Failed to enable active antennas")
-                # Attempt to restore backup
+            # Step 2: Apply full antenna power configuration (enable & disable in one pass)
+            self.logger.info("Step 2: Applying full antenna power configuration (enable + disable)")
+            full_apply_success = self.o1_client.apply_gnb_configuration(gnb_config, enable_only=False)
+            if not full_apply_success:
+                self.logger.error("Failed to apply full antenna power configuration - attempting rollback")
                 self.o1_client.restore_configuration(backup_config)
                 return False
-            
-            # Phase 3: Deploy A1 policy
-            self.logger.info("Phase 3: Deploying A1 policy instance")
+
+            # Step 3: Deploy A1 policy instance (handover/admission)
+            self.logger.info("Step 3: Deploying A1 policy instance (handover)")
             policy_success = self.deploy_policy_instance_from_optimization(optimization_result, mcc_mnc_data)
             if not policy_success:
-                self.logger.error("Failed to deploy A1 policy")
-                # Attempt to restore backup
+                self.logger.error("Failed to deploy A1 policy - attempting rollback of antenna config")
                 self.o1_client.restore_configuration(backup_config)
                 return False
-            
-            # Phase 4: Disable/reduce power for unused antennas
-            self.logger.info("Phase 4: Disabling/reducing power for unused antennas")
-            disable_success = self.o1_client.apply_gnb_configuration(gnb_config, enable_only=False)
-            if not disable_success:
-                self.logger.warning("Some antennas failed to be disabled - this may affect energy savings")
-            
-            self.logger.info("Three-phase optimization deployment completed successfully")
+
+            self.logger.info("Optimization deployment completed successfully (power then policy)")
             return True
             
         except Exception as e:

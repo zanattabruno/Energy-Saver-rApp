@@ -12,7 +12,7 @@ import sys
 import signal
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional
-from time import sleep
+from time import sleep, perf_counter
 
 # Local imports
 from utils.config_manager import ConfigManager
@@ -24,7 +24,7 @@ from utils.exceptions import (
     OptimizationError,
     RAppRegistrationError
 )
-from rApp_catalogue_client import RAppCatalogueClient, rAppCatalalogueClient
+from rApp_catalogue_client import rAppCatalalogueClient
 from prometheus_metrics_collector import PrometheusClient
 from policy_manager import PolicyManager
 
@@ -452,6 +452,7 @@ class EnergySaverApplication:
         """
         try:
             self.logger.info("Starting single optimization cycle")
+            cycle_start = perf_counter()
             
             # Step 1: Collect metrics and MCC/MNC data
             metrics, imsi_count, mcc_mnc_data = self.collect_metrics_and_mcc_mnc()
@@ -465,10 +466,14 @@ class EnergySaverApplication:
             deployment_success = self.deploy_policy(optimization_result, mcc_mnc_data)
             
             if deployment_success:
+                cycle_duration = perf_counter() - cycle_start
                 self.logger.info("Single optimization cycle completed successfully")
+                self.logger.info(f"Single optimization cycle total time: {cycle_duration:.3f}s")
                 return 0
             else:
+                cycle_duration = perf_counter() - cycle_start
                 self.logger.error("Single optimization cycle completed with policy deployment failure")
+                self.logger.info(f"Single optimization cycle total time (failed): {cycle_duration:.3f}s")
                 return 1
                 
         except Exception as e:
@@ -578,31 +583,36 @@ def main() -> int:
     Returns:
         int: Exit code (0 for success, 1 for failure)
     """
+    app_start = perf_counter()
     try:
         # Parse command line arguments
         args = parse_arguments()
-        
+
         # Validate configuration file exists
         config_path = Path(args.config)
         if not config_path.exists():
             print(f"Error: Configuration file not found: {config_path}")
             return 1
-        
+
         # Create and run the application
         app = EnergySaverApplication(str(config_path))
-        
+
         # Override log level if specified
         if args.log_level:
             logging.getLogger().setLevel(getattr(logging, args.log_level))
-        
-        return app.run()
-        
+
+        exit_code = app.run()
+        return exit_code
+
     except KeyboardInterrupt:
         print("\nApplication interrupted by user")
         return 1
     except Exception as e:
         print(f"Application failed with error: {e}")
         return 1
+    finally:
+        total_runtime = perf_counter() - app_start
+        logging.getLogger(__name__).info(f"Total rApp runtime: {total_runtime:.3f}s")
 
 
 if __name__ == "__main__":
